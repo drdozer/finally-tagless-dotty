@@ -4,7 +4,7 @@ trait Semigroup[S] {
 }
 
 object Semigroup {
-  def (lhs: S) ++ [S](rhs: S)(implicit S: Semigroup[S]): S = S.append(lhs, rhs)
+  def (lhs: S) ++ [S](rhs: S) with (S: Semigroup[S]): S = S.append(lhs, rhs)
 }
 
 @FunctionalInterface
@@ -36,7 +36,7 @@ trait And[B] {
 }
 
 object And {
-  implicit object AndAsSemigroup extends AsSemigroup[And] {
+  instance AndAsSemigroup of AsSemigroup[And] {
     def (B: And[B]) asSemigroup[B]: Semigroup[B] = B.and
   }
 }
@@ -47,7 +47,7 @@ trait Or[B] {
 }
 
 object Or {
-  implicit object OrAsSemigroup extends AsSemigroup[Or] {
+  instance OrAsSemigroup of AsSemigroup[Or] {
     def (B: Or[B]) asSemigroup[B]: Semigroup[B] = B.or
   }
 }
@@ -66,35 +66,35 @@ object StringifyContext {
     def (s: String) a: Stringify = _ append s
     def apply(a: Appendable => Unit): Stringify = a
 
-    implicit object StringifyTruthValues extends TruthValues[Stringify] {
+    instance StringifyTruthValues of TruthValues[Stringify] {
       override def ⊤ : Stringify = "⊤".a
       override def ⊥ : Stringify = "⊥".a
     }
-    implicit object StringifyAnd extends And[Stringify] {
+    instance StringifyAnd of And[Stringify] {
       override def and(lhs: Stringify, rhs: Stringify): Stringify =
       "and(".a ++ lhs ++ ",".a ++ rhs ++ ")".a
     }
-    implicit object StringifyOr extends Or[Stringify] {
+    instance StringifyOr of Or[Stringify] {
       override def or(lhs: Stringify, rhs: Stringify): Stringify =
         "or(".a ++ lhs ++ ",".a ++ rhs ++ ")".a
     }
-    implicit object StringifyNot extends Not[Stringify] {
+    instance StringifyNot of Not[Stringify] {
       override def not(lhs: Stringify): Stringify =
       "not(".a ++ lhs ++ ")".a
     }
-    implicit object StringifyVariable extends Variable[Stringify] {
+    instance StringifyVariable of Variable[Stringify] {
       override def variable(name: String): Stringify = "?".a ++ name.a
     }
 
     def run(s: Stringify, a: Appendable): Unit = s(a)
   }
 
-  implicit object StringifySemigroup extends Semigroup[Stringify] {
+  instance StringifySemigroup of Semigroup[Stringify] {
     override def append(lhs: Stringify, rhs: Stringify): Stringify =
       Stringify(a => { Stringify.run(lhs, a) ; Stringify.run(rhs, a) })
   }
 
-  implicit object RunStringify extends RunDSL[Stringify, Appendable => Unit] {
+  instance RunStringify of RunDSL[Stringify, Appendable => Unit] {
     override def runDSL(s: Stringify) = Stringify.run(s, _)
   }
 }
@@ -105,23 +105,23 @@ object BooleanContext {
   opaque type Bool = Boolean
 
   object Bool {
-    implicit object BooleanTruthValues extends TruthValues[Bool] {
+    instance BooleanTruthValues of TruthValues[Bool] {
       override def ⊤ : Bool = true
       override def ⊥ : Bool = false
     }
-    implicit object BooleanAnd extends And[Bool] {
+    instance BooleanAnd of And[Bool] {
       override def and(lhs: Bool, rhs: Bool): Bool= lhs && rhs
     }
-    implicit object BooleanOr extends Or[Bool] {
+    instance BooleanOr of Or[Bool] {
       override def or(lhs: Bool, rhs: Bool): Bool = lhs || rhs
     }
-    implicit object BooleanNot extends Not[Bool] {
+    instance BooleanNot of Not[Bool] {
       override def not(lhs: Bool): Bool = !lhs
     }
     private [BooleanContext] def run(b: Bool): Boolean = b
   }
 
-  implicit object RunBool extends RunDSL[Bool, Boolean] {
+  instance RunBool of RunDSL[Bool, Boolean] {
     def runDSL(b: Bool): Boolean = Bool.run(b)
   }
 }
@@ -132,16 +132,16 @@ object NNFContext {
   opaque type NNF[T] = Boolean => T
 
   object NNF {
-    implicit def NNFNot[B]: Not[NNF[B]] = (lhs: NNF[B]) => ctx => lhs(!ctx)
-    implicit def NNFAnd[B](implicit A: And[B], O: Or[B]): And[NNF[B]] = (lhs: NNF[B], rhs: NNF[B]) => {
+    instance def NNFNot[B]: Not[NNF[B]] = (lhs: NNF[B]) => ctx => lhs(!ctx)
+    instance def NNFAnd[B] with (A: And[B], O: Or[B]): And[NNF[B]] = (lhs: NNF[B], rhs: NNF[B]) => {
       case true  => A.and(lhs(true), rhs(true))
       case false => O.or(lhs(false), rhs(false))
     }
-    implicit def NNFOr[B](implicit A: And[B], O: Or[B]): Or[NNF[B]] = (lhs: NNF[B], rhs: NNF[B]) => {
+    instance def NNFOr[B] with (A: And[B], O: Or[B]): Or[NNF[B]] = (lhs: NNF[B], rhs: NNF[B]) => {
       case true  => O.or(lhs(true), rhs(true))
       case false => A.and(lhs(false), rhs(false))
     }
-    implicit def NNFTruthValues[B](implicit B: TruthValues[B]): TruthValues[NNF[B]] = new {
+    instance def NNFTruthValues[B] with (B: TruthValues[B]): TruthValues[NNF[B]] = new {
       def ⊤ : NNF[B] = {
         case true  => B.⊤
         case false => B.⊥
@@ -151,17 +151,17 @@ object NNFContext {
         case false => B.⊤
       }
     }
-    def NNFTerminal[A, B](f: A => B)(implicit N: Not[B]): A => NNF[B] = a => {
+    def NNFTerminal[A, B](f: A => B) with (N: Not[B]): A => NNF[B] = a => {
       case true => f(a)
       case false => N.not(f(a))
     }
 
-    implicit def NNFVariable[B](implicit N: Not[B], V: Variable[B]): Variable[NNF[B]] = NNFTerminal(V.variable) apply
+    instance def NNFVariable[B] with (N: Not[B], V: Variable[B]): Variable[NNF[B]] = NNFTerminal(V.variable) apply
 
     private [NNFContext] def run[B](b: NNF[B]): B = b(true)
   }
 
-  implicit def RunNNF[B]: RunDSL[NNF[B], B] = new {
+  instance def RunNNF[B]: RunDSL[NNF[B], B] = new {
     override def runDSL(b: NNF[B]): B = NNF.run(b)
   }
 }
@@ -169,75 +169,90 @@ object NNFContext {
 import NNFContext._
 
 object VariableBinding {
-  def (name: String) |-> [B](value: B): MapBinding[B] = MapBinding.bind(name, value)
 
-  opaque type MapBinding[B] = Map[String, B]
+  type MapBinding[B] = (String, TruthValues[B] |=> B)
+  opaque type MapBindings[B] = List[MapBinding[B]]
 
-  object MapBinding {
-    def empty[B]: MapBinding[B] = Map.empty
-    def bind[B](name: String, value: B): MapBinding[B] = Map((name, value))
+  def (name: String) |-> [B](value: TruthValues[B] |=> B): MapBindings[B] = MapBindings.bind(name, value)
 
-    implicit def MapBindingSemigroup[B]: Semigroup[MapBinding[B]] = (_: Map[String, B]) ++ _
+  object MapBindings {
+    def empty[B]: MapBindings[B] = Nil
+    def bind[B](binding: MapBinding[B]): MapBindings[B] = binding :: Nil
 
-    def lookup[B](mb: MapBinding[B], name: String): Option[B] = mb.get(name)
+    instance def MapBindingsSemigroup[B]: Semigroup[MapBindings[B]] = _ ++ _
+
+    def lookup[B](mb: MapBindings[B], name: String): Option[TruthValues[B] |=> B] = mb.find(_._1 == name).map(_._2)
   }
 }
 
 import VariableBinding._
 
 object BindOrFailContext {
-  opaque type BindOrFail[B] = MapBinding[B] =>
+  opaque type BoundOrFail[+B] =
     Set[String] | // evaluate to the set of unbound variable names
-    B // or a value if all are bound
+      B // or a value if all are bound
 
+  object BoundOrFail {
+    def (s: Set[String]) unbound[B]: BoundOrFail[Nothing] = s
+    def (b: B) bound[B]: BoundOrFail[B] = b
+  }
+
+  import BoundOrFail._
+  def (b: BoundOrFail[B]) fold[B, C](onSuccess: B => C, onFailure: Set[String] => C): C = b match {
+    case f: Set[String] => onFailure(f)
+    case s: B => onSuccess(s)
+  }
+
+
+  opaque type BindOrFail[B] = MapBindings[B] => BoundOrFail[B]
 
   object BindOrFail {
-    def unwrap[B](b: BindOrFail[B]): MapBinding[B] => Set[String] | B = b
+    def unwrap[B](b: BindOrFail[B]): MapBindings[B] => BoundOrFail[B] = b
 
-    implicit def BindVariable[B]: Variable[BindOrFail[B]] = name => MapBinding.lookup(_, name) match {
-      case Some(b) => b
-      case None => Set(name)
+    instance def BindVariable[B] with TruthValues[B]: Variable[BindOrFail[B]] = name => MapBindings.lookup(_, name) match {
+      case Some(b) => b.bound
+      case None => Set(name).unbound
     }
 
 
     def BindSemigroup[B](S: Semigroup[B]): Semigroup[BindOrFail[B]] =
       (lhs, rhs) => b => (lhs(b), rhs(b)) match {
-        case (lb: Set[String], rb: Set[String]) => lb ++ rb
-        case (lb: Set[String], _: B) => lb
-        case (_: B, rb: Set[String]) => rb
-        case (lb: B, rb: B) => S.append(lb, rb)
+        case (lb: Set[String], rb: Set[String]) => (lb ++ rb).unbound
+        case (lb: Set[String], _: B) => lb.unbound
+        case (_: B, rb: Set[String]) => rb.unbound
+        case (lb: B, rb: B) => S.append(lb, rb).bound
       }
 
-    implicit def BindAnd[B](implicit A: And[B]): And[BindOrFail[B]] = BindSemigroup(A.asSemigroup).append
-    implicit def BindOr[B](implicit O: Or[B]): Or[BindOrFail[B]] = BindSemigroup(O.asSemigroup).append
+    instance def BindAnd[B] with (A: And[B]): And[BindOrFail[B]] = BindSemigroup(A.asSemigroup).append
+    instance def BindOr[B] with (O: Or[B]): Or[BindOrFail[B]] = BindSemigroup(O.asSemigroup).append
 
-    implicit def BindNot[B](implicit N: Not[B]): Not[BindOrFail[B]] =
-      lhs => b => lhs(b) match {
-        case (lb: Set[String]) => lb
-        case (lb: B) => N.not(lb)
-      }
+    instance def BindNot[B] with (N: Not[B]): Not[BindOrFail[B]] =
+      lhs => b => lhs(b) fold (
+        N.not(_).bound,
+        identity(_).unbound
+      )
 
-    implicit def BindTruthValue[B](implicit T: TruthValues[B]): TruthValues[BindOrFail[B]] = new {
-      override def ⊤ : BindOrFail[B] = _ => T.⊤
-      override def ⊥ : BindOrFail[B] = _ => T.⊥
+    instance def BindTruthValue[B] with (T: TruthValues[B]): TruthValues[BindOrFail[B]] = new {
+      override def ⊤ : BindOrFail[B] = _ => T.⊤.bound
+      override def ⊥ : BindOrFail[B] = _ => T.⊥.bound
 
     }
   }
 
-  implicit def RunBindOrFail[B]: RunDSL[BindOrFail[B], MapBinding[B] => (Set[String] | B)] = BindOrFail.unwrap
+  instance def RunBindOrFail[B]: RunDSL[BindOrFail[B], MapBindings[B] => BoundOrFail[B]] = BindOrFail.unwrap
 }
 
 import BindOrFailContext._
 
 
 object BindPartiallyContext {
-  opaque type BindPartially[B] = MapBinding[B] => B
+  opaque type BindPartially[B] = MapBindings[B] => B
 
   object BindPartially {
-    def unwrap[B](b: BindPartially[B]): MapBinding[B] => B = b
+    def unwrap[B](b: BindPartially[B]): MapBindings[B] => B = b
 
-    implicit def BindVariable[B](implicit V: Variable[B]): Variable[BindPartially[B]] =
-      name => MapBinding.lookup(_, name) match {
+    instance def BindVariable[B] with (T: TruthValues[B], V: Variable[B]): Variable[BindPartially[B]] =
+      name => MapBindings.lookup(_, name) match {
         case Some(b) => b
         case None => V.variable(name)
       }
@@ -245,33 +260,43 @@ object BindPartiallyContext {
     def BindSemigroup[B](S: Semigroup[B]): Semigroup[BindPartially[B]] =
       (lhs, rhs) => b => S.append(lhs(b), rhs(b))
 
-    implicit def BindAnd[B](implicit A: And[B]): And[BindPartially[B]] = BindSemigroup(A.asSemigroup).append
-    implicit def BindOr[B](implicit O: Or[B]): Or[BindPartially[B]] = BindSemigroup(O.asSemigroup).append
-    implicit def BindNot[B](implicit N: Not[B]): Not[BindPartially[B]] = lhs => b => N.not(lhs(b))
+    instance def BindAnd[B] with (A: And[B]): And[BindPartially[B]] = BindSemigroup(A.asSemigroup).append
+    instance def BindOr [B] with (O: Or [B]): Or [BindPartially[B]] = BindSemigroup(O.asSemigroup).append
+    instance def BindNot[B] with (N: Not[B]): Not[BindPartially[B]] = lhs => b => N.not(lhs(b))
   }
+
+  implicit def RunBindPartially[B]: RunDSL[BindPartially[B], MapBindings[B] => B] = BindPartially.unwrap
 }
+
+import BindPartiallyContext._
+
+
+
+
+
+
 
 object Main {
   // syntax, because there isn't yet a nice way to deal with this without boilerplate - hint, hint
-  inline def runDSL[Rep, Res](a: Rep)(implicit R: RunDSL[Rep, Res]): Res = R.runDSL(a)
+  inline def runDSL[Rep, Res](a: Rep) with (R: RunDSL[Rep, Res]): Res = R.runDSL(a)
 
-  inline def ⊤ [B](implicit B: TruthValues[B]): B = B.⊤
-  inline def ⊥ [B](implicit B: TruthValues[B]): B = B.⊥
-  inline def and[B](lhs: B, rhs: B)(implicit B: And[B]): B = B.and(lhs, rhs)
-  inline def or[B](lhs: B, rhs: B)(implicit B: Or[B]): B = B.or(lhs, rhs)
-  inline def not[B](lhs: B)(implicit B: Not[B]): B = B.not(lhs)
-  def (name: String) ? [B](implicit B: Variable[B]): B = B.variable(name)
+  inline def ⊤ [B] with (B: TruthValues[B]): B = B.⊤
+  inline def ⊥ [B] with (B: TruthValues[B]): B = B.⊥
+  inline def and[B](lhs: B, rhs: B) with (B: And[B]): B = B.and(lhs, rhs)
+  inline def or[B](lhs: B, rhs: B) with (B: Or[B]): B = B.or(lhs, rhs)
+  inline def not[B](lhs: B) with (B: Not[B]): B = B.not(lhs)
+  def (name: String) ? [B] with (B: Variable[B]): B = B.variable(name)
 
   // Some logical statements
   // These are here as defs rather than inline as expressions because type inference works for the instances within
   // defs but fails for expressions, due to the interaction of how implicits are prioritised in scope and how much
   // type information is used from the call context
-  def andTF[B](implicit A: And[B], T: TruthValues[B]): B = and(⊤, ⊥)
-  def orTF[B](implicit O: Or[B], T: TruthValues[B]): B = or(⊤, ⊥)
-  def notF[B](implicit N: Not[B], T: TruthValues[B]): B = not(⊥)
-  def notAndTNotF[B](implicit A: And[B], N: Not[B], T: TruthValues[B]): B = not(and(⊤, not(⊥)))
+  def andTF[B] with (A: And[B], T: TruthValues[B]): B = and(⊤, ⊥)
+  def orTF[B] with (O: Or[B], T: TruthValues[B]): B = or(⊤, ⊥)
+  def notF[B] with (N: Not[B], T: TruthValues[B]): B = not(⊥)
+  def notAndTNotF[B] with (A: And[B], N: Not[B], T: TruthValues[B]): B = not(and(⊤, not(⊥)))
 
-  def implication[B](implicit A: And[B], N: Not[B], V: Variable[B]): B =
+  def implication[B] with (A: And[B], N: Not[B], V: Variable[B]): B =
     not(and("a".?, not("b".?)))
 
   def main(args: Array[String]): Unit = {
@@ -284,37 +309,28 @@ object Main {
     println(runDSL[Rep = Bool](orTF))
     println(runDSL[Rep = Bool](notF))
 
-    runDSL[Rep = Stringify](notAndTNotF) apply System.out ; println
+    runDSL[Rep = Stringify](notAndTNotF)(System.out) ; println
     println(runDSL[Rep = Bool](notAndTNotF))
-    runDSL[Rep = Stringify](runDSL[Rep = NNF[Stringify]](notAndTNotF)) apply System.out ; println
+    runDSL[Rep = Stringify](runDSL[Rep = NNF[Stringify]](notAndTNotF))(System.out) ; println
 
-    runDSL[Rep = Stringify](implication) apply System.out ; println
-    runDSL[Rep = Stringify](runDSL[Rep = NNF[Stringify]](implication)) apply System.out ; println
+    runDSL[Rep = Stringify](implication)(System.out) ; println
+    runDSL[Rep = Stringify](runDSL[Rep = NNF[Stringify]](implication))(System.out) ; println
 
-    runDSL[Rep = BindOrFail[Stringify]](implication) apply MapBinding.empty match {
-      case (unbound: Set[String]) =>
-        println(s"Unbound variables: $unbound")
-      case (s: Stringify) =>
-        runDSL[Rep = Stringify](s) apply System.out
-        println
-    }
+    runDSL[Rep = BindOrFail[Stringify]](implication)(MapBindings.empty) fold (
+      s => { runDSL[Rep = Stringify](s)(System.out) ; println },
+    unbound => println(s"Unbound variables: $unbound")
+    )
 
-    def bindA[B](implicit T: TruthValues[B]) = "a" |-> ⊤
+    runDSL[Rep = BindOrFail[Stringify]](implication)("a" |-> ⊤) fold (
+      s => { runDSL[Rep = Stringify](s)(System.out) ; println },
+    unbound => println(s"Unbound variables: $unbound")
+    )
 
-    runDSL[Rep = BindOrFail[Stringify]](implication) apply ("a" |-> ⊤) match {
-      case (unbound: Set[String]) =>
-        println(s"Unbound variables: $unbound")
-      case (s: Stringify) =>
-        runDSL[Rep = Stringify](s) apply System.out
-    println
-    }
+    runDSL[Rep = BindOrFail[Stringify]](implication)(("a" |-> ⊤[Stringify]) ++ ("b" |-> ⊥)) fold (
+      s => { runDSL[Rep = Stringify](s)(System.out) ; println },
+    unbound => println(s"Unbound variables: $unbound")
+    )
 
-    runDSL[Rep = BindOrFail[Stringify]](implication) apply (("a" |-> ⊤[Stringify]) ++ ("b" |-> ⊥)) match {
-      case (unbound: Set[String]) =>
-        println(s"Unbound variables: $unbound")
-      case (s: Stringify) =>
-        runDSL[Rep = Stringify](s) apply System.out
-    println
-    }
+    runDSL[Rep = Stringify](runDSL[Rep = BindPartially[Stringify]](implication)("a" |-> ⊤))(System.out) ; println
   }
 }
