@@ -6,6 +6,7 @@ encodings. The project makes use of several language features:
 * typeclass instances and derivation
 * partially applied type parameter lists
 * opaque types
+* instance of with syntax
 
 ### The Conceit
 
@@ -40,7 +41,7 @@ So for example, the negation normal form context and the associated run instance
 ```scala
 opaque type NNF[T] = Boolean => T
 
-implicit def RunNNF[B]: RunDSL[NNF[B], B] = new { ... }
+instance RunNNF[B] of RunDSL[NNF[B], B] { ... }
 ```
 
 This declares that we can run a negation normal form context to give a value in some underlying representation.
@@ -58,7 +59,7 @@ The actual running of an expression is done through a helper method that has par
 So for example:
 
 ```scala
-def notAndTNotF[B](implicit A: And[B], N: Not[B], T: TruthValues[B]): B = 
+def notAndTNotF[B] with (A: And[B], N: Not[B], T: TruthValues[B]): B = 
   not(and(⊤, not(⊥)))
 
 runDSL[Rep = Stringify](
@@ -74,8 +75,18 @@ interpreted when we choose to run it.
  
 ### Usage
 
-This is a normal sbt project, you can compile code with `sbt compile` and run it
-with `sbt run`, `sbt console` will start a Dotty REPL.
+This project is built using the add-witness version of dotty.
+You can build this version of dotty by checking out the dotty project and adding in the staging repo.
+
+```
+git clone git@github.com:lampepfl/dotty.git
+cd dotty
+git submodule update --init
+git remote add staging https://github.com/dotty-staging/dotty
+git fetch staging add-witness
+git checkout staging/add-witness
+sbt dotty-bootstrapped/publishLocal
+```
 
 For more information on the sbt-dotty plugin, see the
 [dotty-example-project](https://github.com/lampepfl/dotty-example-project/blob/master/README.md).
