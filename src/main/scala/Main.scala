@@ -246,36 +246,42 @@ object BooleanContext {
 import BooleanContext._
 
 object NNFContext {
-  opaque type NNF[T] = Boolean => T
+  trait NNF[T] {
+    def negationOf: T
+    def terminal: T
+  }
 
   object NNF {
-    instance def NNFNot[B]: Not[NNF[B]] = (lhs: NNF[B]) => ctx => lhs(!ctx)
-    instance def NNFAnd[B] with (A: And[B], O: Or[B]): And[NNF[B]] = (lhs: NNF[B], rhs: NNF[B]) => {
-      case true  => A.and(lhs(true), rhs(true))
-      case false => O.or(lhs(false), rhs(false))
+    instance def NNFNot[B]: Not[NNF[B]] = (lhs: NNF[B]) => new {
+      override def negationOf: B = lhs.terminal
+      override def terminal: B = lhs.negationOf
     }
-    instance def NNFOr[B] with (A: And[B], O: Or[B]): Or[NNF[B]] = (lhs: NNF[B], rhs: NNF[B]) => {
-      case true  => O.or(lhs(true), rhs(true))
-      case false => A.and(lhs(false), rhs(false))
+    instance def NNFAnd[B] with (A: And[B], O: Or[B]): And[NNF[B]] = (lhs: NNF[B], rhs: NNF[B]) => new {
+      override def terminal: B = A.and(lhs.terminal, rhs.terminal)
+      override def negationOf: B = O.or(lhs.negationOf, rhs.negationOf)
+    }
+    instance def NNFOr[B] with (A: And[B], O: Or[B]): Or[NNF[B]] = (lhs: NNF[B], rhs: NNF[B]) => new {
+      override def terminal: B = O.or(lhs.terminal, rhs.terminal)
+      override def negationOf: B = A.and(lhs.negationOf, rhs.negationOf)
     }
     instance def NNFTruthValues[B] with (B: TruthValues[B]): TruthValues[NNF[B]] = new {
-      def ⊤ : NNF[B] = {
-        case true  => B.⊤
-        case false => B.⊥
+      def ⊤ : NNF[B] = new {
+        override def terminal: B = B.⊤
+        override def negationOf: B = B.⊥
       }
-      def ⊥ : NNF[B] = {
-        case true  => B.⊥
-        case false => B.⊤
+      def ⊥ : NNF[B] = new {
+        override def terminal: B = B.⊥
+        override def negationOf: B = B.⊤
       }
     }
-    def NNFTerminal[A, B](f: A => B) with (N: Not[B]): A => NNF[B] = a => {
-      case true => f(a)
-      case false => N.not(f(a))
+    def NNFTerminal[A, B](f: A => B) with (N: Not[B]): A => NNF[B] = a => new {
+      override def terminal: B = f(a)
+      override def negationOf: B = N.not(f(a))
     }
 
     instance def NNFVariable[B] with (N: Not[B], V: Variable[B]): Variable[NNF[B]] = NNFTerminal(V.variable) apply
 
-    private [NNFContext] def run[B](b: NNF[B]): B = b(true)
+    private [NNFContext] def run[B](b: NNF[B]): B = b.terminal
   }
 
   instance def RunNNF[B]: RunDSL[NNF[B], B] = new {
@@ -421,18 +427,22 @@ object Main {
 //    runDSL[Rep = Stringify](and(⊤, ⊥))
 
     // these all will
+    println("+ Some expressions")
     runDSL[Rep = Stringify](andTF) apply System.out ; println
     println(runDSL[Rep = Bool](andTF))
     println(runDSL[Rep = Bool](orTF))
     println(runDSL[Rep = Bool](notF))
 
+    println("+ Raw and negation normal form")
     runDSL[Rep = Stringify](notAndTNotF)(System.out) ; println
-    println(runDSL[Rep = Bool](notAndTNotF))
+//    println(runDSL[Rep = Bool](notAndTNotF))
     runDSL[Rep = Stringify](runDSL[Rep = NNF[Stringify]](notAndTNotF))(System.out) ; println
 
+    println("+ Implication and negation normal form")
     runDSL[Rep = Stringify](implication)(System.out) ; println
     runDSL[Rep = Stringify](runDSL[Rep = NNF[Stringify]](implication))(System.out) ; println
 
+    println("+ Falliable variable bindings")
     runDSL[Rep = BindOrFail[Stringify]](implication)(MapBindings.empty) fold (
       s => { runDSL[Rep = Stringify](s)(System.out) ; println },
     unbound => println(s"Unbound variables: $unbound")
@@ -448,6 +458,7 @@ object Main {
     unbound => println(s"Unbound variables: $unbound")
     )
 
+    println("+ irrefutible variable binding")
     runDSL[Rep = Stringify](runDSL[Rep = BindPartially[Stringify]](implication)("a" |-> ⊤))(System.out) ; println
   }
 }
