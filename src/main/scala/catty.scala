@@ -4,6 +4,10 @@ trait RunDSL[Rep, Res] {
   def runDSL(a: Rep): Res
 }
 
+object RunDSL {
+  instance def RunIdentity[R]: RunDSL[R, R] = identity
+}
+
 
 
 // A binary, associative operation.

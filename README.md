@@ -75,18 +75,7 @@ interpreted when we choose to run it.
  
 ### Usage
 
-This project is built using the add-witness version of dotty.
-You can build this version of dotty by checking out the dotty project and adding in the staging repo.
-
-```
-git clone git@github.com:lampepfl/dotty.git
-cd dotty
-git submodule update --init
-git remote add staging https://github.com/dotty-staging/dotty
-git fetch staging add-witness
-git checkout staging/add-witness
-sbt dotty-bootstrapped/publishLocal
-```
+Now that the instance/for/with syntax has been merged into trunk, this project is built using the dotty nighty build.
 
 For more information on the sbt-dotty plugin, see the
 [dotty-example-project](https://github.com/lampepfl/dotty-example-project/blob/master/README.md).

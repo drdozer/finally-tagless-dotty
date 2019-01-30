@@ -1,4 +1,9 @@
-val dottyVersion = "0.13.0-bin-SNAPSHOT"
+val dottyVersion = 
+//  "0.13.0-bin-SNAPSHOT" // locally built
+// dottyVersion = dottyLatestNightlyBuild.get // autofetched nightly - doesn't compile though
+  "0.13.0-bin-20190129-05cdff8-NIGHTLY"
+
+
 
 lazy val root = project
   .in(file("."))
