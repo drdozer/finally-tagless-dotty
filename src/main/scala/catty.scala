@@ -159,3 +159,13 @@ object Distributive {
     override def runDSL(d: DistributeRight[S]): S = d.terminal
   }
 }
+
+
+trait Snoccable[C, E] {
+  def (col: C) snoc (e: E): C
+}
+
+trait Consable[C, E] {
+  def (e: E) cons (col: C): C
+}
+

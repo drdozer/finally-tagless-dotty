@@ -36,19 +36,70 @@ a new "real" type, or the overhead associated with boxing it into a case class i
 
 Each context also provides an instance of `RunDSL`, which abstracts the idea of 'running' a representation into a final
 value.
-So for example, the negation normal form context and the associated run instance are like this:
+For Stringify, running it means exposing the underlying function so that the user can then pass in an appendable.
 
 ```scala
-opaque type NNF[T] = Boolean => T
-
-instance RunNNF[B] of RunDSL[NNF[B], B] { ... }
+instance RunStringify[B] of RunDSL[Stringify, Appendable => Unit] { ... }
 ```
 
-This declares that we can run a negation normal form context to give a value in some underlying representation.
-The interpretation of the `Boolean` argument is clearly implementation-specific, and should not even be visible to
-people evaluating an expression into the context.
-Making it an opaque type hides this to the outside world.
-They can't see or access this `Boolean`, and nor do they need to know what passing in `true` or `false` means.
+Evaluation contexts have two concerns.
+The calling context sometimes needs to select which environment the value is to be made within, and the value returned
+may need to be one of a range of distinct possibilies.
+Let's look at the former first.
+
+```scala
+trait NNF[T] {
+  def negationOf: T
+  def terminal: T
+}
+```
+
+This declares a negation normal form context.
+It has two environments within which a term will evaluate itself.
+In the `terminal` context, a term will evaluate itself as if it were a terminal with respect to the negation normal form
+rewrite.
+In the `negationOf` context, a term will evaluate itself as if it was being negated.
+
+The implementation of `Not[NNF[T]]` is then trivial.
+
+```scala
+instance def NNFNot[B]: Not[NNF[B]] = (lhs: NNF[B]) => new {
+  override def negationOf: B = lhs.terminal
+  override def terminal: B = lhs.negationOf
+}
+```
+
+That is, whenever a negation is evaluated within a negated context, return the non-negated child, and
+whenever a negation is evaluated in the non-negated context, evaluate the negation of the child.
+This pushes negation down towards the leaves, and self-evidently eliminates double-negations on the way. 
+
+And since every self-contained negation normal form expression starts being evaluated without negation, the `RunDSL`
+instance is also trivial.
+
+```scala
+instance RunNNF[B] of RunDSL[NNF[B], B] {
+  override def runDSL(b: NNF[B]): B = NNF.run(b)
+}
+```
+
+All that is left is to provide implementations for the other operators.
+These are also trivial.
+Terms that wrap other terms do whatever internal transforms are required to perform the negation re-write, and push
+negation down to their children.
+For example:
+
+```scala
+instance def NNFAnd[B] with (A: And[B], O: Or[B]): And[NNF[B]] = (lhs: NNF[B], rhs: NNF[B]) => new {
+  override def terminal: B = A.and(lhs.terminal, rhs.terminal)
+  override def negationOf: B = O.or(lhs.negationOf, rhs.negationOf)
+}
+```
+
+Terminal terms, such as variables, take care to negate themselves.
+
+```Scala
+
+```
 
 This stacking of representations allows us to do things like run a logical expression in the context `NNF[Stringify]` to
 get a `Stringify`, and then in turn run that to get an `Appendable => Unit` which can then be written out.

@@ -150,7 +150,7 @@ object NNFContext {
     private [NNFContext] def run[B](b: NNF[B]): B = b.terminal
   }
 
-  instance def RunNNF[B]: RunDSL[NNF[B], B] = new {
+  instance RunNNF[B] of RunDSL[NNF[B], B] {
     override def runDSL(b: NNF[B]): B = NNF.run(b)
   }
 }
