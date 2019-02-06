@@ -1,6 +1,6 @@
 val dottyVersion = 
-  "0.13.0-bin-SNAPSHOT" // locally built
-//  dottyLatestNightlyBuild.get // autofetched nightly - doesn't compile though
+//  "0.13.0-bin-SNAPSHOT" // locally built
+  dottyLatestNightlyBuild.get // autofetched nightly - doesn't compile though
 //  "0.13.0-bin-20190129-05cdff8-NIGHTLY"
 //  "0.13.0-bin-20190128-36740bf-NIGHTLY"
 
