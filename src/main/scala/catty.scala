@@ -6,6 +6,8 @@ trait RunDSL[Rep, Res] {
 
 object RunDSL {
   implied RunIdentity[R] for RunDSL[R, R] = identity
+
+  def (rep: Rep) run[Rep, Res] given (r: RunDSL[Rep, Res]): Res = r.runDSL(rep)
 }
 
 

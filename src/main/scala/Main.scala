@@ -294,40 +294,43 @@ object Main {
   def main(args: Array[String]): Unit = {
     // this won't compile because for type inference being not good enough
 //    runDSL[Rep = Stringify](and(⊤, ⊥))
+    import RunDSL.run
 
     // these all will
     println("+ Some expressions")
-    runDSL[Rep = Stringify](andTF) apply System.out ; println
-    println(runDSL[Rep = Bool](andTF))
-    println(runDSL[Rep = Bool](orTF))
-    println(runDSL[Rep = Bool](notF))
+    (andTF : Stringify).run(System.out) ; println
+
+    println((andTF : Bool).run)
+    println((orTF : Bool).run)
+    println((notF : Bool).run)
 
     println("+ Raw and negation normal form")
-    runDSL[Rep = Stringify](notAndTNotF)(System.out) ; println
-//    println(runDSL[Rep = Bool](notAndTNotF))
-    runDSL[Rep = Stringify](runDSL[Rep = NNF[Stringify]](notAndTNotF))(System.out) ; println
+    (notAndTNotF : Stringify).run(System.out) ; println
+    (notAndTNotF : NNF[Stringify]).run.run(System.out) ; println
 
     println("+ Implication and negation normal form")
-    runDSL[Rep = Stringify](implication)(System.out) ; println
-    runDSL[Rep = Stringify](runDSL[Rep = NNF[Stringify]](implication))(System.out) ; println
+    (implication : Stringify).run(System.out) ; println
+    (implication : NNF[Stringify]).run.run(System.out) ; println
 
     println("+ Falliable variable bindings")
-    runDSL[Rep = BindOrFail[Stringify]](implication)(MapBindings.empty) fold (
-      s => { runDSL[Rep = Stringify](s)(System.out) ; println },
+    (implication : BindOrFail[Stringify]).run(MapBindings.empty) fold (
+      s => { s.run(System.out) ; println },
     unbound => println(s"Unbound variables: $unbound")
     )
 
-    runDSL[Rep = BindOrFail[Stringify]](implication)("a" |-> ⊤) fold (
-      s => { runDSL[Rep = Stringify](s)(System.out) ; println },
+    (implication : BindOrFail[Stringify]).run("a" |-> ⊤) fold (
+      s => { s.run(System.out) ; println },
     unbound => println(s"Unbound variables: $unbound")
     )
 
-    runDSL[Rep = BindOrFail[Stringify]](implication)(("a" |-> ⊤[Stringify]) ++ ("b" |-> ⊥)) fold (
-      s => { runDSL[Rep = Stringify](s)(System.out) ; println },
+    (implication : BindOrFail[Stringify]).run(("a" |-> ⊤[Stringify]) ++ ("b" |-> ⊥)) fold (
+      s => { s.run(System.out) ; println },
     unbound => println(s"Unbound variables: $unbound")
     )
 
     println("+ irrefutible variable binding")
-    runDSL[Rep = Stringify](runDSL[Rep = BindPartially[Stringify]](implication)("a" |-> ⊤))(System.out) ; println
+    (implication : BindPartially[Stringify]).run("a" |-> ⊤).run(System.out) ; println
+
+
   }
 }
