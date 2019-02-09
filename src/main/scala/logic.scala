@@ -51,6 +51,4 @@ object Bool {
   def unwrap(b: Bool): Boolean = b
 }
 
-implied RunBool for RunDSL[Bool, Boolean] {
-  def runDSL(b: Bool): Boolean = Bool.unwrap(b)
-}
+implied RunBool for RunDSL[Bool, Boolean] = Bool.unwrap

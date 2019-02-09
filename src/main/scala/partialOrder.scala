@@ -77,28 +77,25 @@ object Neq {
 }
 
 
-object TotalOrderContext {
-  opaque type TotalOrder[P] = P
+opaque type TotalOrder[P] = P
 
-  object TotalOrder {
-    implied LtTotalOrder[P, B] given (pb: Lt[P, B]) for Lt[TotalOrder[P], B] = (lhs, rhs) => pb.lt(lhs, rhs)
-    implied LteqTotalOrder[P, B] given (l: Lt[P, B], e: Eq[P, B], o: Or[B]) for Lteq[TotalOrder[P], B] = (lhs, rhs) =>
-      o.or(
-        l.lt(lhs, rhs),
-        e.eq(lhs, rhs)
-      )
-    implied GteqTotalOrder[P, B] given (l: Lt[P, B], e: Eq[P, B], o: Or[B]) for Gteq[TotalOrder[P], B] = (lhs, rhs) =>
-      o.or(
-        l.lt(rhs, lhs),
-        e.eq(rhs, lhs)
-      )
-    implied GtOrder[P, B] given (pb: Lt[P, B]) for Gt[TotalOrder[P], B] = (lhs, rhs) => pb.lt(rhs, lhs)
-    implied EqTotalOrder[P, B] given (e: Eq[P, B]) for Eq[TotalOrder[P], B] = (lhs, rhs) => e.eq(lhs, rhs)
-    implied NeqTotalOrder[P, B] given (l: Lt[P, B], o: Or[B]) for Neq[TotalOrder[P], B] = (lhs, rhs) =>
-      o.or(
-        l.lt(lhs, rhs),
-        l.lt(rhs, lhs)
-      )
-  }
-
+object TotalOrder {
+  implied LtTotalOrder[P, B] given (pb: Lt[P, B]) for Lt[TotalOrder[P], B] = (lhs, rhs) => pb.lt(lhs, rhs)
+  implied LteqTotalOrder[P, B] given (l: Lt[P, B], e: Eq[P, B], o: Or[B]) for Lteq[TotalOrder[P], B] = (lhs, rhs) =>
+    o.or(
+      l.lt(lhs, rhs),
+      e.eq(lhs, rhs)
+    )
+  implied GteqTotalOrder[P, B] given (l: Lt[P, B], e: Eq[P, B], o: Or[B]) for Gteq[TotalOrder[P], B] = (lhs, rhs) =>
+    o.or(
+      l.lt(rhs, lhs),
+      e.eq(rhs, lhs)
+    )
+  implied GtOrder[P, B] given (pb: Lt[P, B]) for Gt[TotalOrder[P], B] = (lhs, rhs) => pb.lt(rhs, lhs)
+  implied EqTotalOrder[P, B] given (e: Eq[P, B]) for Eq[TotalOrder[P], B] = (lhs, rhs) => e.eq(lhs, rhs)
+  implied NeqTotalOrder[P, B] given (l: Lt[P, B], o: Or[B]) for Neq[TotalOrder[P], B] = (lhs, rhs) =>
+    o.or(
+      l.lt(lhs, rhs),
+      l.lt(rhs, lhs)
+    )
 }

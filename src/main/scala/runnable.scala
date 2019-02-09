@@ -49,7 +49,6 @@ object StringifyContext {
     Stringify(a => { Stringify.run(lhs, a) ; Stringify.run(rhs, a) })
   }
 
-  implied RunStringify for RunDSL[Stringify, Appendable => Unit] {
-    override def runDSL(s: Stringify) = Stringify.run(s, _)
-  }
+  implied RunStringify for RunDSL[Stringify, Appendable => Unit] =
+    s => Stringify.run(s, _)
 }

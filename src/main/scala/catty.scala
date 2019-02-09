@@ -25,9 +25,8 @@ object Semigroup {
     }
   }
 
-  implied RunRewriteToRight[S] for RunDSL[RewriteToRight[S], S] {
-    override def runDSL(r: RewriteToRight[S]): S = r.terminal
-  }
+  implied RunRewriteToRight[S] for RunDSL[RewriteToRight[S], S] = _.terminal
+
 
   trait RewriteToLeft[S] {
     def toRightOf(lhs: S): S
@@ -47,9 +46,7 @@ object Semigroup {
     }
   }
 
-  implied RunRewriteToLeft[S] for RunDSL[RewriteToLeft[S], S] {
-    override def runDSL(r: RewriteToLeft[S]): S = r.terminal
-  }
+  implied RunRewriteToLeft[S] for RunDSL[RewriteToLeft[S], S] = _.terminal
 }
 
 
@@ -74,14 +71,10 @@ object Distributive {
   object Add {
     def apply[S](s: S): Add[S] = s
     def (a: Add[S]) unwrap[S]: S = a
-  }
-  implied AddSemigroup[S] given (S: Distributive[S]) for Semigroup[Add[S]] {
-    import Add.unwrap
-    override def append(lhs: Add[S], rhs: Add[S]): Add[S] = Add(S.add(lhs.unwrap, rhs.unwrap))
-  }
-  implied RunAdd[S] for RunDSL[Add[S], S] {
-    import Add.unwrap
-    override def runDSL(a: Add[S]): S = a.unwrap
+    implied AddSemigroup[S] given (S: Distributive[S]) for Semigroup[Add[S]] {
+      override def append(lhs: Add[S], rhs: Add[S]): Add[S] = Add(S.add(lhs.unwrap, rhs.unwrap))
+    }
+    implied RunAdd[S] for RunDSL[Add[S], S] = _.unwrap
   }
 
 
@@ -89,71 +82,67 @@ object Distributive {
   object Mult {
     def apply[S](s: S): Mult[S] = s
     def (a: Mult[S]) unwrap[S]: S = a
-  }
-  implied MultSemigroup[S] given (S: Distributive[S]) for Semigroup[Mult[S]] {
-    import Mult.unwrap
-    override def append(lhs: Mult[S], rhs: Mult[S]): Mult[S] = Mult(S.mult(lhs.unwrap, rhs.unwrap))
-  }
-  implied RunMult[S] for RunDSL[Mult[S], S] {
-    import Mult.unwrap
-    override def runDSL(a: Mult[S]): S = a.unwrap
+    implied MultSemigroup[S] given (S: Distributive[S]) for Semigroup[Mult[S]] {
+      override def append(lhs: Mult[S], rhs: Mult[S]): Mult[S] = Mult(S.mult(lhs.unwrap, rhs.unwrap))
+    }
+    implied RunMult[S] for RunDSL[Mult[S], S] = _.unwrap
   }
 
-  // x * (y + z) => (x * y) + (x * z)
-  trait DistributeLeft[S] {
-    def toRightOf(lhs: S): S
-    def terminal: S
-  }
-  def LeftDistributedTerminal[S](t: S) given (S: Distributive[S]): DistributeLeft[S] = new {
-    override def toRightOf(lhs: S): S = S.mult(lhs, t)
-    override def terminal: S = t
-  }
-  implied LeftDistributingSemiRng[S] given (S: Distributive[S]) for Distributive[DistributeLeft[S]] {
-    override def add(lhs: DistributeLeft[S], rhs: DistributeLeft[S]): DistributeLeft[S] = new {
-      override def terminal: S = S.add(lhs.terminal, rhs.terminal)
-      override def toRightOf(l: S): S = S.add(lhs.toRightOf(l), rhs.toRightOf(l))
-    }
+}
 
-    override def mult(lhs: DistributeLeft[S], rhs: DistributeLeft[S]): DistributeLeft[S] = new {
-      override def terminal: S = rhs.toRightOf(lhs.terminal)
-      override def toRightOf(l: S): S = rhs.toRightOf(lhs.toRightOf(l))
-    }
-  }
-  implied RunDistributeLeft[S] for RunDSL[DistributeLeft[S], S] {
-    override def runDSL(d: DistributeLeft[S]): S = d.terminal
+// x * (y + z) => (x * y) + (x * z)
+trait DistributeLeft[S] {
+  def toRightOf(lhs: S): S
+  def terminal: S
+}
+def LeftDistributedTerminal[S](t: S) given (S: Distributive[S]): DistributeLeft[S] = new {
+  override def toRightOf(lhs: S): S = S.mult(lhs, t)
+  override def terminal: S = t
+}
+implied LeftDistributingSemiRng[S] given (S: Distributive[S]) for Distributive[DistributeLeft[S]] {
+  override def add(lhs: DistributeLeft[S], rhs: DistributeLeft[S]): DistributeLeft[S] = new {
+    override def terminal: S = S.add(lhs.terminal, rhs.terminal)
+    override def toRightOf(l: S): S = S.add(lhs.toRightOf(l), rhs.toRightOf(l))
   }
 
-  // (x + y) * z => (x * z) + (y * z)
-  trait DistributeRight[S] {
-    def toLeftOf(rhs: S): S
-    def terminal: S
-  }
-  def RightDistributedTerminal[S](t: S) given (S: Distributive[S]): DistributeRight[S] = new {
-    override def toLeftOf(lhs: S): S = S.mult(lhs, t)
-    override def terminal: S = t
-  }
-  implied RightDistributingSemiRng[S] given (S: Distributive[S]) for Distributive[DistributeRight[S]] {
-    override def add(lhs: DistributeRight[S], rhs: DistributeRight[S]): DistributeRight[S] = new {
-      override def terminal: S = S.add(lhs.terminal, rhs.terminal)
-      override def toLeftOf(r: S): S = S.add(lhs.toLeftOf(r), rhs.toLeftOf(r))
-    }
-
-    override def mult(lhs: DistributeRight[S], rhs: DistributeRight[S]): DistributeRight[S] = new {
-      override def terminal: S = rhs.toLeftOf(lhs.terminal)
-      override def toLeftOf(r: S): S = lhs.toLeftOf(rhs.toLeftOf(r))
-    }
-  }
-  implied RunDistributeRight[S] for RunDSL[DistributeRight[S], S] {
-    override def runDSL(d: DistributeRight[S]): S = d.terminal
+  override def mult(lhs: DistributeLeft[S], rhs: DistributeLeft[S]): DistributeLeft[S] = new {
+    override def terminal: S = rhs.toRightOf(lhs.terminal)
+    override def toRightOf(l: S): S = rhs.toRightOf(lhs.toRightOf(l))
   }
 }
 
+implied RunDistributeLeft[S] for RunDSL[DistributeLeft[S], S] = _.terminal
 
-trait Snoccable[C, E] {
-  def (col: C) snoc (e: E): C
-}
 
-trait Consable[C, E] {
-  def (e: E) cons (col: C): C
+// (x + y) * z => (x * z) + (y * z)
+trait DistributeRight[S] {
+  def toLeftOf(rhs: S): S
+  def terminal: S
 }
+def RightDistributedTerminal[S](t: S) given (S: Distributive[S]): DistributeRight[S] = new {
+  override def toLeftOf(lhs: S): S = S.mult(lhs, t)
+  override def terminal: S = t
+}
+implied RightDistributingSemiRng[S] given (S: Distributive[S]) for Distributive[DistributeRight[S]] {
+  override def add(lhs: DistributeRight[S], rhs: DistributeRight[S]): DistributeRight[S] = new {
+    override def terminal: S = S.add(lhs.terminal, rhs.terminal)
+    override def toLeftOf(r: S): S = S.add(lhs.toLeftOf(r), rhs.toLeftOf(r))
+  }
+
+  override def mult(lhs: DistributeRight[S], rhs: DistributeRight[S]): DistributeRight[S] = new {
+    override def terminal: S = rhs.toLeftOf(lhs.terminal)
+    override def toLeftOf(r: S): S = lhs.toLeftOf(rhs.toLeftOf(r))
+  }
+}
+implied RunDistributeRight[S] for RunDSL[DistributeRight[S], S] = _.terminal
+
+
+//
+//trait Snoccable[C, E] {
+//  def (col: C) snoc (e: E): C
+//}
+//
+//trait Consable[C, E] {
+//  def (e: E) cons (col: C): C
+//}
 
