@@ -1,17 +1,3 @@
-// A representation that can be 'run' to convert an intermediate representation into a final result.
-@FunctionalInterface
-trait RunDSL[Rep, Res] {
-  def runDSL(a: Rep): Res
-}
-
-object RunDSL {
-  implied RunIdentity[R] for RunDSL[R, R] = identity
-
-  def (rep: Rep) run[Rep, Res] given (r: RunDSL[Rep, Res]): Res = r.runDSL(rep)
-}
-
-
-
 // A binary, associative operation.
 @FunctionalInterface
 trait Semigroup[S] {
