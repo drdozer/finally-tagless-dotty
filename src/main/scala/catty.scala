@@ -95,19 +95,21 @@ trait DistributeLeft[S] {
   def toRightOf(lhs: S): S
   def terminal: S
 }
-def LeftDistributedTerminal[S](t: S) given (S: Distributive[S]): DistributeLeft[S] = new {
-  override def toRightOf(lhs: S): S = S.mult(lhs, t)
-  override def terminal: S = t
-}
-implied LeftDistributingSemiRng[S] given (S: Distributive[S]) for Distributive[DistributeLeft[S]] {
-  override def add(lhs: DistributeLeft[S], rhs: DistributeLeft[S]): DistributeLeft[S] = new {
-    override def terminal: S = S.add(lhs.terminal, rhs.terminal)
-    override def toRightOf(l: S): S = S.add(lhs.toRightOf(l), rhs.toRightOf(l))
+object DistributeLeft {
+  def LeftDistributedTerminal[S](t: S) given (S: Distributive[S]): DistributeLeft[S] = new {
+    override def toRightOf(lhs: S): S = S.mult(lhs, t)
+    override def terminal: S = t
   }
+  implied LeftDistributingSemiRng[S] given (S: Distributive[S]) for Distributive[DistributeLeft[S]] {
+    override def add(lhs: DistributeLeft[S], rhs: DistributeLeft[S]): DistributeLeft[S] = new {
+      override def terminal: S = S.add(lhs.terminal, rhs.terminal)
+      override def toRightOf(l: S): S = S.add(lhs.toRightOf(l), rhs.toRightOf(l))
+    }
 
-  override def mult(lhs: DistributeLeft[S], rhs: DistributeLeft[S]): DistributeLeft[S] = new {
-    override def terminal: S = rhs.toRightOf(lhs.terminal)
-    override def toRightOf(l: S): S = rhs.toRightOf(lhs.toRightOf(l))
+    override def mult(lhs: DistributeLeft[S], rhs: DistributeLeft[S]): DistributeLeft[S] = new {
+      override def terminal: S = rhs.toRightOf(lhs.terminal)
+      override def toRightOf(l: S): S = rhs.toRightOf(lhs.toRightOf(l))
+    }
   }
 }
 
@@ -119,19 +121,22 @@ trait DistributeRight[S] {
   def toLeftOf(rhs: S): S
   def terminal: S
 }
-def RightDistributedTerminal[S](t: S) given (S: Distributive[S]): DistributeRight[S] = new {
-  override def toLeftOf(lhs: S): S = S.mult(lhs, t)
-  override def terminal: S = t
-}
-implied RightDistributingSemiRng[S] given (S: Distributive[S]) for Distributive[DistributeRight[S]] {
-  override def add(lhs: DistributeRight[S], rhs: DistributeRight[S]): DistributeRight[S] = new {
-    override def terminal: S = S.add(lhs.terminal, rhs.terminal)
-    override def toLeftOf(r: S): S = S.add(lhs.toLeftOf(r), rhs.toLeftOf(r))
-  }
 
-  override def mult(lhs: DistributeRight[S], rhs: DistributeRight[S]): DistributeRight[S] = new {
-    override def terminal: S = rhs.toLeftOf(lhs.terminal)
-    override def toLeftOf(r: S): S = lhs.toLeftOf(rhs.toLeftOf(r))
+object DistributeRight {
+  def RightDistributedTerminal[S](t: S) given (S: Distributive[S]): DistributeRight[S] = new {
+    override def toLeftOf(lhs: S): S = S.mult(lhs, t)
+    override def terminal: S = t
+  }
+  implied RightDistributingSemiRng[S] given (S: Distributive[S]) for Distributive[DistributeRight[S]] {
+    override def add(lhs: DistributeRight[S], rhs: DistributeRight[S]): DistributeRight[S] = new {
+      override def terminal: S = S.add(lhs.terminal, rhs.terminal)
+      override def toLeftOf(r: S): S = S.add(lhs.toLeftOf(r), rhs.toLeftOf(r))
+    }
+
+    override def mult(lhs: DistributeRight[S], rhs: DistributeRight[S]): DistributeRight[S] = new {
+      override def terminal: S = rhs.toLeftOf(lhs.terminal)
+      override def toLeftOf(r: S): S = lhs.toLeftOf(rhs.toLeftOf(r))
+    }
   }
 }
 implied RunDistributeRight[S] for RunDSL[DistributeRight[S], S] = _.terminal
