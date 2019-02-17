@@ -1,3 +1,6 @@
+type Identity[T] = T
+type Const[T] = [Dummy] => T
+
 // A binary, associative operation.
 @FunctionalInterface
 trait Semigroup[S] {
@@ -141,3 +144,14 @@ object DistributeRight {
   }
 }
 implied RunDistributeRight[S] for RunDSL[DistributeRight[S], S] = _.terminal
+
+
+/** A postpend operation.
+  *
+  * @tparam C   type to collect values into
+  * @tparam E   type of value to collect
+  */
+@FunctionalInterface
+trait Postpend[C, E] {
+  def postpend(coll: C, el: E): C
+}
