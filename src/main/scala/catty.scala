@@ -4,8 +4,9 @@ trait Semigroup[S] {
   def append(lhs: S, rhs: S): S
 }
 
+def (lhs: S) ++ [S](rhs: S) given (S: Semigroup[S]): S = S.append(lhs, rhs)
+
 object Semigroup {
-  def (lhs: S) ++ [S](rhs: S) given (S: Semigroup[S]): S = S.append(lhs, rhs)
 
   trait RewriteToRight[S] {
     def toLeftOf(rhs: S): S
@@ -140,14 +141,3 @@ object DistributeRight {
   }
 }
 implied RunDistributeRight[S] for RunDSL[DistributeRight[S], S] = _.terminal
-
-
-//
-//trait Snoccable[C, E] {
-//  def (col: C) snoc (e: E): C
-//}
-//
-//trait Consable[C, E] {
-//  def (e: E) cons (col: C): C
-//}
-

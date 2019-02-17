@@ -1,9 +1,6 @@
 
 object Main {
 
-  import BoundOrFail.fold
-  import Semigroup._
-
   inline def ⊤ [B] given (B: TruthValues[B]): B = B.⊤
   inline def ⊥ [B] given (B: TruthValues[B]): B = B.⊥
   inline def and[B](lhs: B, rhs: B) given (B: And[B]): B = B.and(lhs, rhs)
@@ -41,25 +38,25 @@ object Main {
     (implication : Stringify).run(System.out) ; println
     (implication : NNF[Stringify]).run.run(System.out) ; println
 
-    println("+ Falliable variable bindings")
-    (implication : BindOrFail[Stringify]).run(MapBindings.empty) fold (
-      s => { s.run(System.out) ; println },
-      unbound => println(s"Unbound variables: $unbound")
-    )
+    println("+ Variable bindings with fail on non-bound")
+    (implication : BindOrFail[Stringify]).run(MapBindings.empty)(new {
+      override def bound(s: Stringify) = { s.run(System.out) ; println }
+      override def unbound(unbound: Set[String]) = println(s"Unbound variables: $unbound")
+    })
 
-    (implication : BindOrFail[Stringify]).run("a" |-> ⊤) fold (
-      s => { s.run(System.out) ; println },
-      unbound => println(s"Unbound variables: $unbound")
-    )
+    (implication : BindOrFail[Stringify]).run("a" |-> ⊤)(new {
+      override def bound(s: Stringify) = { s.run(System.out) ; println }
+      override def unbound(unbound: Set[String]) = println(s"Unbound variables: $unbound")
+    })
 
-    (implication : BindOrFail[Stringify]).run(("a" |-> ⊤[Stringify]) ++ ("b" |-> ⊥)) fold (
-      s => { s.run(System.out) ; println },
-      unbound => println(s"Unbound variables: $unbound")
-    )
+    (implication : BindOrFail[Stringify]).run(("a" |-> ⊤[Stringify]) ++ ("b" |-> ⊥))(new {
+      override def bound(s: Stringify) = { s.run(System.out) ; println }
+      override def unbound(unbound: Set[String]) = println(s"Unbound variables: $unbound")
+    })
 
-    println("+ irrefutible variable binding")
-    (implication : BindPartially[Stringify]).run("a" |-> ⊤).run(System.out) ; println
-    (implication : NNF[BindPartially[Stringify]]).run.run("a" |-> ⊤).run(System.out) ; println
+    println("+ Variable binding with no change on non-bound")
+    (implication : BindIfPossible[Stringify]).run("a" |-> ⊤).run(System.out) ; println
+    (implication : NNF[BindIfPossible[Stringify]]).run.run("a" |-> ⊤).run(System.out) ; println
 
 
   }
