@@ -162,28 +162,6 @@ object TokenBuffer {
     override def (b: CharSequence) span (startingFrom: NonNegativeInt, endingBefore: NonNegativeInt): CharSequence =
     b.subSequence(startingFrom, endingBefore)
   }
-
-  implied BufferTokenParser[Buffer, Token]
-    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenParser[Token, Const[ParsePosition[Buffer]]] {
-    override def anyToken: ParsePosition[Buffer] = (buff, pos) =>
-      ParseResult.matched(pos + 1)
-
-      override def token(t: Token): ParsePosition[Buffer] = (buff, pos) =>
-      if(E.equiv(buff tokenAt pos, t)) ParseResult.matched(pos + 1)
-      else ParseResult.mismatch
-
-      override def anyOf(ts: Seq[Token]*) =
-    {
-      val tokens = Set.empty ++ ts.flatten
-      (buff, pos) =>
-        if (tokens contains (buff tokenAt pos)) ParseResult.matched(pos + 1)
-        else ParseResult.mismatch
-    }
-
-    override def forAny(p: Token => Boolean) = (buff, pos) =>
-      if(p(buff tokenAt pos)) ParseResult.matched(pos + 1)
-      else ParseResult.mismatch
-  }
 }
 
 
@@ -208,7 +186,33 @@ object ParseResult {
   }
 }
 
-type ParsePosition[Buffer] = (Buffer, NonNegativeInt) => ParseResult
+opaque type ParsePosition[Buffer] = (Buffer, NonNegativeInt) => ParseResult
+
+object ParsePosition {
+
+  implied BufferTokenParser[Buffer, Token]
+    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenParser[Token, Const[ParsePosition[Buffer]]] {
+    override def anyToken: ParsePosition[Buffer] = (buff, pos) =>
+      ParseResult.matched(pos + 1)
+
+      override def token(t: Token): ParsePosition[Buffer] = (buff, pos) =>
+      if(E.equiv(buff tokenAt pos, t)) ParseResult.matched(pos + 1)
+      else ParseResult.mismatch
+
+      override def anyOf(ts: Seq[Token]*) =
+    {
+      val tokens = Set.empty ++ ts.flatten
+      (buff, pos) =>
+        if (tokens contains (buff tokenAt pos)) ParseResult.matched(pos + 1)
+        else ParseResult.mismatch
+    }
+
+    override def forAny(p: Token => Boolean) = (buff, pos) =>
+      if(p(buff tokenAt pos)) ParseResult.matched(pos + 1)
+      else ParseResult.mismatch
+  }
+
+}
 
 
 //@FunctionalInterface

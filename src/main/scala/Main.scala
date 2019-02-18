@@ -9,9 +9,6 @@ object Main {
   def (name: String) ? [B] given (B: Variable[B]): B = B.variable(name)
 
   // Some logical statements
-  // These are here as defs rather than inline as expressions because type inference works for the implieds givenin
-  // defs but fails for expressions, due to the interaction for how implicits are prioritised in scope and how much
-  // type information is used from the call context
   def andTF[B] given (A: And[B], T: TruthValues[B]): B = and(⊤, ⊥)
   def orTF[B] given (O: Or[B], T: TruthValues[B]): B = or(⊤, ⊥)
   def notF[B] given (N: Not[B], T: TruthValues[B]): B = not(⊥)
