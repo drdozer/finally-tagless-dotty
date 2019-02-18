@@ -145,7 +145,7 @@ trait TokenStringParser[Buffer, R[_]] {
   */
 trait TokenBuffer[Buffer, Token] {
   /** Buffer length. */
-  def length(b: Buffer): NonNegativeInt
+  def (b: Buffer) length: NonNegativeInt
 
   // pos < length
   /** Fetch a token from a buffer by index. */
@@ -162,6 +162,7 @@ object TokenBuffer {
     override def (b: CharSequence) span (startingFrom: NonNegativeInt, endingBefore: NonNegativeInt): CharSequence =
     b.subSequence(startingFrom, endingBefore)
   }
+
 }
 
 
@@ -210,6 +211,21 @@ object ParsePosition {
     override def forAny(p: Token => Boolean) = (buff, pos) =>
       if(p(buff tokenAt pos)) ParseResult.matched(pos + 1)
       else ParseResult.mismatch
+  }
+
+  implied BufferTokenStringParser[Buffer, Token]
+    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenStringParser[Buffer, Const[ParsePosition[Buffer]]] {
+    override def tokens(ts: Buffer) = (buff, pos) => {
+      val tsl = ts.length
+      val bfl = buff.length
+      def test(bi: NonNegativeInt, ti: NonNegativeInt): ParseResult =
+        if(bi >= bfl) ParseResult.mismatch // run off the end of the input
+        else if (ti >= tsl) ParseResult.matched(bi) // fully matched input
+        else if (E.equiv(buff tokenAt bi, ts tokenAt ti)) test(bi + 1, ti + 1) // may need optimisations here for bounds checks
+        else ParseResult.mismatch // tokens differ
+
+      test(pos, 0)
+    }
   }
 
 }
