@@ -1,3 +1,5 @@
+import scala.language.higherKinds
+
 type Identity[T] = T
 type Const[T] = [Dummy] => T
 
@@ -145,6 +147,10 @@ object DistributeRight {
 }
 implied RunDistributeRight[S] for RunDSL[DistributeRight[S], S] = _.terminal
 
+
+trait Mappable[M[_]] {
+  def (m: M[A]) map[A, B] (f: A => B): M[B]
+}
 
 /** A postpend operation.
   *
