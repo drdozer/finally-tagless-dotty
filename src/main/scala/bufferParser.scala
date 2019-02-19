@@ -34,80 +34,123 @@ object TokenBuffer {
 
 trait MatchPosition[M] {
   def matched(endingBefore: NonNegativeInt): M
-  def mismatch: M
+  def mismatched: M
 }
 
-@FunctionalInterface
+
 trait PositionResult {
   def apply[M](mr: MatchPosition[M]): M
 }
 
 object PositionResult {
-  def matched(endingBefore: NonNegativeInt): PositionResult = new {
+  def wasMatch(endingBefore: NonNegativeInt): PositionResult = new {
     override def apply[M](mr: MatchPosition[M]): M = mr.matched(endingBefore)
   }
   // object? val? def? what will be best for inlining/erasing?
-  object mismatch extends PositionResult {
-    override def apply[M](mr: MatchPosition[M]): M = mr.mismatch
+  object wasMismatch extends PositionResult {
+    override def apply[M](mr: MatchPosition[M]): M = mr.mismatched
+  }
+
+  def handleMatch(m: NonNegativeInt => NonNegativeInt = identity): MatchPosition[PositionResult] = new {
+    override def matched(endingBefore: NonNegativeInt) = wasMatch(m(endingBefore))
+    override def mismatched = wasMismatch
+  }
+
+  def matchIf(f: NonNegativeInt => Boolean, m: NonNegativeInt => NonNegativeInt = identity): MatchPosition[PositionResult] = new {
+    override def matched(endingBefore: NonNegativeInt) =
+      if(f(endingBefore)) wasMatch(m(endingBefore))
+      else wasMismatch
+    override def mismatched = wasMismatch
   }
 }
 
 opaque type Position[Buffer] = (Buffer, NonNegativeInt) => PositionResult
 
-object ParsePosition {
+object Position {
 
-  implied BufferParser[Buffer] for Parser[Position[Buffer]] {
-    override def succeed = (buf, pos) => PositionResult.matched(pos)
-    override def failure = (buf, pos) => PositionResult.mismatch
+  implied PositionParser[Buffer] for Parser[Position[Buffer]] {
+    override def succeed = (buf, pos) => PositionResult.wasMatch(pos)
+    override def failure = (buf, pos) => PositionResult.wasMismatch
   }
 
-  implied BufferParserLocations[Buffer, Token]
+  implied PositionLookaheadParser[Buffer] for LookaheadParser[Position[Buffer]] {
+    override def positiveLookahead(lhs: Position[Buffer]) = (buff, pos) =>
+      lhs(buff, pos)(PositionResult.handleMatch(_ => pos))
+
+    override def negativeLookahead(lhs: Position[Buffer]) = (Buff, pos) => lhs(buff, pos)(new {
+      override def matched(endingBefore: NonNegativeInt) = PositionResult.wasMismatch
+      override def mismatched = PositionResult.wasMatch(pos)
+    })
+  }
+
+  implied PositionParserLocations[Buffer, Token]
     given (TB: TokenBuffer[Buffer, Token]) for ParserLocations[Position[Buffer]] {
     override def beginning = (buff, pos) =>
-      if(pos == NonNegativeInt(0)) PositionResult.matched(pos)
-      else PositionResult.mismatch
+      if(pos == NonNegativeInt(0)) PositionResult.wasMatch(pos)
+      else PositionResult.wasMismatch
     override def ending = (buff, pos) =>
-      if(pos == buff.length) PositionResult.matched(pos)
-      else PositionResult.mismatch
+      if(pos == buff.length) PositionResult.wasMatch(pos)
+      else PositionResult.wasMismatch
   }
 
-  implied BufferTokenParser[Buffer, Token]
+  implied PositionTokenParser[Buffer, Token]
     given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenParser[Token, Position[Buffer]] {
     override def anyToken: Position[Buffer] = (buff, pos) =>
-      PositionResult.matched(pos + 1)
+      PositionResult.wasMatch(pos + 1)
 
       override def token(t: Token): Position[Buffer] = (buff, pos) =>
-      if(E.equiv(buff tokenAt pos, t)) PositionResult.matched(pos + 1)
-      else PositionResult.mismatch
+      if(E.equiv(buff tokenAt pos, t)) PositionResult.wasMatch(pos + 1)
+      else PositionResult.wasMismatch
 
       override def anyOf(ts: Seq[Token]*) =
     {
       val tokens = Set.empty ++ ts.flatten
       (buff, pos) =>
-        if (tokens contains (buff tokenAt pos)) PositionResult.matched(pos + 1)
-        else PositionResult.mismatch
+        if (tokens contains (buff tokenAt pos)) PositionResult.wasMatch(pos + 1)
+        else PositionResult.wasMismatch
     }
 
     override def forAny(p: Token => Boolean) = (buff, pos) =>
-      if(p(buff tokenAt pos)) PositionResult.matched(pos + 1)
-      else PositionResult.mismatch
+      if(p(buff tokenAt pos)) PositionResult.wasMatch(pos + 1)
+      else PositionResult.wasMismatch
   }
 
-  implied BufferTokenStringParser[Buffer, Token]
+  implied PositionTokenStringParser[Buffer, Token]
     given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenStringParser[Buffer, Position[Buffer]] {
     override def tokens(ts: Buffer) = (buff, pos) => {
       val tsl = ts.length
       val bfl = buff.length
       def test(bi: NonNegativeInt, ti: NonNegativeInt): PositionResult =
-        if(bi >= bfl) PositionResult.mismatch // run off the end of the input
-        else if (ti >= tsl) PositionResult.matched(bi) // fully matched input
+        if(bi >= bfl) PositionResult.wasMismatch // run off the end of the input
+        else if (ti >= tsl) PositionResult.wasMatch(bi) // fully matched input
         else if (E.equiv(buff tokenAt bi, ts tokenAt ti)) test(bi + 1, ti + 1) // may need optimisations here for bounds checks
-        else PositionResult.mismatch // tokens differ
+        else PositionResult.wasMismatch // tokens differ
 
       test(pos, NonNegativeInt(0))
     }
   }
 
+  implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[Position[Buffer], Position[Buffer], Position[Buffer]] {
+    override def (lhs: Position[Buffer]) andThen (rhs: Position[Buffer]) = (buff, pos) =>
+      lhs(buff, pos)(new {
+        override def matched(lhsEnd) => rhs(lhsEnd)(new {
+          override def matched(rhsEnd) => PositionResult.wasMatch(rhsEnd)
+          override def mismatched => PositionResult.wasMismatch
+        })
+        override def mismatched => PositionResult.wasMismatch
+      })
+  }
+
+  implied PositionParseOneOrOther[Buffer] for ParseOneOrOther[Position[Buffer], Position[Buffer], Position[Buffer]] {
+    override def (lhs: Position[Buffer]) andThen (rhs: Position[Buffer]) = (buff, pos) =>
+      lhs(buff, pos)(new {
+        override def matched(lhsEnd) => PositionResult.wasMatch(lhsEnd)
+        override def mismatched => rhs(buff, pos)(new {
+          override def matched(rhsEnd) => PositionResult.wasMatch(rhsEnd)
+          override def mismatched => PositionResult.wasMismatch
+        })
+      })
+  }
 }
 
 

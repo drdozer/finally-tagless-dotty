@@ -33,7 +33,10 @@ object PositiveInt {
 
 
 
-// Generalised base cases and combinators for parsers.
+/** Generalised base cases for parsers.
+  *
+  * @tparam R   Parser representation type
+  */
 trait Parser[R] {
   /** The parser that consumes no input and always succeeds */
   def succeed: R
@@ -64,38 +67,6 @@ trait ParserLocations[R] {
 }
 
 
-trait ParseOneThenOther[P, Q, R] {
-  /** Combine two parsers so that the first one will attempt to match, and if it does, the second one will.
-    * The combined parser will require both to match, or fail.
-    */
-  def (lhs: P) andThen (rhs: Q): R
-}
-
-trait ParseOneOrOther[P, Q, R] {
-  /** Combine two parsers so that the first one is tried, and if it fails, the second one is tried.
-    * The combined parser will succeed if either do, or fail if both fail.
-    */
-  def (lhs: P) orAlternatively (rhs: Q): R
-}
-
-trait ParseRepeatedly[P, Q, R] {
-
-  /** Attempt to repeatedly apply a parser, potentially interspersed with a separator, potentially with minimum and
-    * maximum repetitions.
-    */
-  def (lhs: P) repeatedly(
-    sep: Q,
-    minTimes: NonNegativeInt = NonNegativeInt(0),
-    maxTimes: PositiveInt = PositiveInt(Integer.MAX_VALUE)): R
-}
-
-
-
-trait ParserCapture[Buffer, P, Q[_]] {
-  /** Capture the input matched by a parser as a buffer, presumably the same buffer type as the parser was parsing. */
-  def (p: P) capture: Q[Buffer]
-}
-
 
 /** A parser that can selectively parse individual tokens. */
 trait TokenParser[Token, R] {
@@ -115,9 +86,90 @@ trait TokenParser[Token, R] {
 }
 
 
+
+
 /** A parser that can efficiently match strings for tokens. */
 trait TokenStringParser[Buffer, R] {
   /** Match a sequence for tokens in-order. */
   def tokens(ts: Buffer): R
   // tokens("") ~~> success
+}
+
+
+
+/** A parser combinator that combines two parsers to match one then the other on the input.
+  *
+  * @tparam P   the type of the first parser to try
+  * @tparam Q   the type of the second parser to try
+  * @tparam R   the type of the parser representing applying `P` and `Q` in turn
+  */
+trait ParseOneThenOther[P, Q, R] {
+  /** Combine two parsers so that the first one will attempt to match, and if it does, the second one will.
+    * The combined parser will require both to match, or fail.
+    */
+  def (lhs: P) andThen (rhs: Q): R
+}
+
+
+
+/** A parser combinator that combines two parsers one or the other on the input.
+  *
+  * @tparam P   the type of the first parser to try
+  * @tparam Q   the type of the second parser to try
+  * @tparam R   the type of the parser representing applying `P` or `Q`
+  */
+trait ParseOneOrOther[P, Q, R] {
+  /** Combine two parsers so that the first one is tried, and if it fails, the second one is tried.
+    * The combined parser will succeed if either do, or fail if both fail.
+    */
+  def (lhs: P) orAlternatively (rhs: Q): R
+}
+
+
+
+trait ParseRepeatedly[P, Q, R] {
+
+  /** Attempt to repeatedly apply a parser, potentially interspersed with a separator, potentially with minimum and
+    * maximum repetitions.
+    */
+  def (lhs: P) repeatedly(
+    sep: Q,
+    minTimes: NonNegativeInt = NonNegativeInt(0),
+    maxTimes: PositiveInt = PositiveInt(Integer.MAX_VALUE)): R
+}
+
+
+object ParseRepeatedly {
+  implied DefaultParseRepeatedly[P, Q, R] for ParseRepeatedly[P, Q, R] {
+    override def (lhs: P) repeatedly(
+      sep: Q,
+      minTimes: NonNegativeInt = NonNegativeInt(0),
+      maxTimes: PositiveInt = PositiveInt(Integer.MAX_VALUE)): R = {
+
+      def whileMin(min: NonNegativeInt) =
+        if(min == 0) untilMax(maxTimes - minTimes)
+        else lhs andThen sep andThen whileMin(min - 1)
+
+      def untilMax(max: PositiveInt) =
+        lhs andThen (
+          if max == 0 success
+          else sep andThen untilMax(max - 1) orAlternatively success
+        )
+
+      whileMin(minTimes, maxTimes)
+    }
+
+  }
+}
+
+
+/** A parser that captures input.
+  *
+  * @tparam Buffer  the type of the input captured
+  * @tparam P       the underlying parser type
+  * @tparam Q       the parser type representing captured input
+  */
+trait ParserCapture[Buffer, P, Q[_]] {
+  /** Capture the input matched by a parser as a buffer, presumably the same buffer type as the parser was parsing. */
+  def (p: P) capture: Q[Buffer]
 }
