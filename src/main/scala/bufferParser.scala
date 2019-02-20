@@ -1,3 +1,5 @@
+import scala.language.implicitConversions
+import NonNegativeInt.+
 
 /**
   * A token buffer is an indexed collection for tokens, indexed from zero to length-1.
@@ -69,15 +71,15 @@ opaque type Position[Buffer] = (Buffer, NonNegativeInt) => PositionResult
 object Position {
 
   implied PositionParser[Buffer] for Parser[Position[Buffer]] {
-    override def succeed = (buf, pos) => PositionResult.wasMatch(pos)
-    override def failure = (buf, pos) => PositionResult.wasMismatch
+    override def succeed: Position[Buffer] = (buff, pos) => PositionResult.wasMatch(pos)
+    override def fail: Position[Buffer] = (buff, pos) => PositionResult.wasMismatch
   }
 
   implied PositionLookaheadParser[Buffer] for LookaheadParser[Position[Buffer]] {
-    override def positiveLookahead(lhs: Position[Buffer]) = (buff, pos) =>
+    override def positiveLookAhead(lhs: Position[Buffer]): Position[Buffer] = (buff, pos) =>
       lhs(buff, pos)(PositionResult.handleMatch(_ => pos))
 
-    override def negativeLookahead(lhs: Position[Buffer]) = (Buff, pos) => lhs(buff, pos)(new {
+    override def negativeLookAhead(lhs: Position[Buffer]): Position[Buffer] = (buff, pos) => lhs(buff, pos)(new {
       override def matched(endingBefore: NonNegativeInt) = PositionResult.wasMismatch
       override def mismatched = PositionResult.wasMatch(pos)
     })
@@ -131,23 +133,23 @@ object Position {
   }
 
   implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[Position[Buffer], Position[Buffer], Position[Buffer]] {
-    override def (lhs: Position[Buffer]) andThen (rhs: Position[Buffer]) = (buff, pos) =>
+    override def (lhs: Position[Buffer]) andThen (rhs: Position[Buffer]): Position[Buffer] = (buff, pos) =>
       lhs(buff, pos)(new {
-        override def matched(lhsEnd) => rhs(lhsEnd)(new {
-          override def matched(rhsEnd) => PositionResult.wasMatch(rhsEnd)
-          override def mismatched => PositionResult.wasMismatch
+        override def matched(lhsEnd: NonNegativeInt) = rhs(buff, lhsEnd)(new {
+          override def matched(rhsEnd: NonNegativeInt) = PositionResult.wasMatch(rhsEnd)
+          override def mismatched = PositionResult.wasMismatch
         })
-        override def mismatched => PositionResult.wasMismatch
+        override def mismatched = PositionResult.wasMismatch
       })
   }
 
   implied PositionParseOneOrOther[Buffer] for ParseOneOrOther[Position[Buffer], Position[Buffer], Position[Buffer]] {
-    override def (lhs: Position[Buffer]) andThen (rhs: Position[Buffer]) = (buff, pos) =>
+    override def (lhs: Position[Buffer]) orAlternatively (rhs: Position[Buffer]): Position[Buffer] = (buff, pos) =>
       lhs(buff, pos)(new {
-        override def matched(lhsEnd) => PositionResult.wasMatch(lhsEnd)
-        override def mismatched => rhs(buff, pos)(new {
-          override def matched(rhsEnd) => PositionResult.wasMatch(rhsEnd)
-          override def mismatched => PositionResult.wasMismatch
+        override def matched(lhsEnd: NonNegativeInt) = PositionResult.wasMatch(lhsEnd)
+        override def mismatched = rhs(buff, pos)(new {
+          override def matched(rhsEnd: NonNegativeInt) = PositionResult.wasMatch(rhsEnd)
+          override def mismatched = PositionResult.wasMismatch
         })
       })
   }

@@ -11,11 +11,11 @@ object NonNegativeInt {
   // ignores overflow
   def (lhs: NonNegativeInt) + (rhs: Int): NonNegativeInt = apply(lhs + rhs)
 
+  def (i: NonNegativeInt) toInt: Int = i
+
 //  implied NNFromInt for Conversion[Int, NonNegativeInt] = apply
   implied IntFromNN for Conversion[NonNegativeInt, Int] = identity
 }
-
-import NonNegativeInt.+
 
 // something isn't working right - I shouldn't need to import this
 
@@ -29,6 +29,8 @@ object PositiveInt {
 
 //  implied PIFromInt for Conversion[Int, PositiveInt] = apply
   implied IntFromPI for Conversion[PositiveInt, Int] = identity
+
+  def (i: PositiveInt) toInt: Int = i
 }
 
 
@@ -131,6 +133,12 @@ trait ParseRepeatedly[P, Q, R] {
 
   /** Attempt to repeatedly apply a parser, potentially interspersed with a separator, potentially with minimum and
     * maximum repetitions.
+    *
+    * The repetition constraints must conform to the contract `minTimes <= maxTimes`.
+    *
+    * @param  sep       parser separating repeats
+    * @param  minTimes  the minimum number of times the main parser must match
+    * @param  maxTimes  the maximum number of matches of the main parser that will be accepted
     */
   def (lhs: P) repeatedly(
     sep: Q,
@@ -140,23 +148,30 @@ trait ParseRepeatedly[P, Q, R] {
 
 
 object ParseRepeatedly {
-  implied DefaultParseRepeatedly[P, Q, R] for ParseRepeatedly[P, Q, R] {
+  // this implementation is broken - should have an aggregator P ~> R
+  implied DefaultParseRepeatedly[P, Q] // R?
+  given (
+    P: Parser[P],
+    AndPP: ParseOneThenOther[P, P, P],
+    AndQP: ParseOneThenOther[Q, P, P],
+    OrPP: ParseOneOrOther[P, P, P]) for ParseRepeatedly[P, Q, P] {
     override def (lhs: P) repeatedly(
       sep: Q,
       minTimes: NonNegativeInt = NonNegativeInt(0),
-      maxTimes: PositiveInt = PositiveInt(Integer.MAX_VALUE)): R = {
+      maxTimes: PositiveInt = PositiveInt(Integer.MAX_VALUE)): P = {
 
-      def whileMin(min: NonNegativeInt) =
-        if(min == 0) untilMax(maxTimes - minTimes)
-        else lhs andThen sep andThen whileMin(min - 1)
+      val p = lhs
+      val qp = sep andThen p
 
-      def untilMax(max: PositiveInt) =
-        lhs andThen (
-          if max == 0 success
-          else sep andThen untilMax(max - 1) orAlternatively success
-        )
+      def whileMin(next: P, min: Int): P =
+        if(min <= 0) untilMax(next, maxTimes.toInt - minTimes.toInt)
+        else next andThen whileMin(qp, min - 1)
 
-      whileMin(minTimes, maxTimes)
+      def untilMax(next: P, max: Int): P =
+        if(max <= 0) P.succeed
+        else (next andThen untilMax(qp, max - 1)) orAlternatively P.succeed
+
+      whileMin(p, minTimes.toInt)
     }
 
   }
