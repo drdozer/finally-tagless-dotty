@@ -1,7 +1,16 @@
-import scala.language.higherKinds
+import scala.language.{higherKinds, implicitConversions}
 
 type Identity[T] = T
 type Const[T] = [Dummy] => T
+
+//trait Replay[R[_]] {
+//  def apply[T] given (R: R[T]): T
+//}
+
+implied widen[A <: B, B] for Conversion[A, B] = identity
+//def convert[A](a: A): Replay[[B] => Conversion[A, B]] = new {
+//  def apply[B] given (C: Conversion[A, B]): B = C(a)
+//}
 
 // A binary, associative operation.
 @FunctionalInterface

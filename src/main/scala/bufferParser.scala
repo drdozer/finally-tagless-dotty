@@ -21,15 +21,11 @@ trait TokenBuffer[Buffer, Token] {
   def (b: Buffer) subBuffer (startingFrom: NonNegativeInt, endingBefore: NonNegativeInt): Buffer
 }
 
-object TokenBuffer {
-
-  implied CharSequenceTokenBuffer for TokenBuffer[CharSequence, Char] {
-    override def (b: CharSequence) length: NonNegativeInt = NonNegativeInt(b.length)
-    override def (b: CharSequence) tokenAt (pos: NonNegativeInt): Char = b.charAt(pos)
-    override def (b: CharSequence) subBuffer (startingFrom: NonNegativeInt, endingBefore: NonNegativeInt): CharSequence =
-    b.subSequence(startingFrom, endingBefore)
-  }
-
+implied CharSequenceTokenBuffer for TokenBuffer[CharSequence, Char] {
+  override def (b: CharSequence) length: NonNegativeInt = NonNegativeInt(b.length)
+  override def (b: CharSequence) tokenAt (pos: NonNegativeInt): Char = b.charAt(pos)
+  override def (b: CharSequence) subBuffer (startingFrom: NonNegativeInt, endingBefore: NonNegativeInt): CharSequence =
+  b.subSequence(startingFrom, endingBefore)
 }
 
 
@@ -117,8 +113,8 @@ object Position {
       else PositionResult.wasMismatch
   }
 
-  implied PositionTokenStringParser[Buffer, Token]
-    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenStringParser[Buffer, Position[Buffer]] {
+  implied PositionBufferParser[Buffer, Token]
+    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for BufferParser[Buffer, Position[Buffer]] {
     override def tokens(ts: Buffer) = (buff, pos) => {
       val tsl = ts.length
       val bfl = buff.length

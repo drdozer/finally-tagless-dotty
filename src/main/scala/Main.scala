@@ -1,23 +1,27 @@
+import scala.language.implicitConversions
 
 object Main {
 
-  inline def ⊤ [B] given (B: TruthValues[B]): B = B.⊤
-  inline def ⊥ [B] given (B: TruthValues[B]): B = B.⊥
-  inline def and[B](lhs: B, rhs: B) given (B: And[B]): B = B.and(lhs, rhs)
-  inline def or[B](lhs: B, rhs: B) given (B: Or[B]): B = B.or(lhs, rhs)
-  inline def not[B](lhs: B) given (B: Not[B]): B = B.not(lhs)
-  def (name: String) ? [B] given (B: Variable[B]): B = B.variable(name)
+  def main(args: Array[String]): Unit = logic
 
-  // Some logical statements
-  def andTF[B] given (A: And[B], T: TruthValues[B]): B = and(⊤, ⊥)
-  def orTF[B] given (O: Or[B], T: TruthValues[B]): B = or(⊤, ⊥)
-  def notF[B] given (N: Not[B], T: TruthValues[B]): B = not(⊥)
-  def notAndTNotF[B] given (A: And[B], N: Not[B], T: TruthValues[B]): B = not(and(⊤, not(⊥)))
+  def logic: Unit = {
 
-  def implication[B] given (A: And[B], N: Not[B], V: Variable[B]): B =
-  not(and("a".?, not("b".?)))
+    inline def ⊤ [B] given (B: TruthValues[B]): B = B.⊤
+    inline def ⊥ [B] given (B: TruthValues[B]): B = B.⊥
+    inline def and[B](lhs: B, rhs: B) given (B: And[B]): B = B.and(lhs, rhs)
+    inline def or[B](lhs: B, rhs: B) given (B: Or[B]): B = B.or(lhs, rhs)
+    inline def not[B](lhs: B) given (B: Not[B]): B = B.not(lhs)
+    def (name: String) ? [B] given (B: Variable[B]): B = B.variable(name)
 
-  def main(args: Array[String]): Unit = {
+    // Some logical statements
+    def andTF[B] given (A: And[B], T: TruthValues[B]): B = and(⊤, ⊥)
+    def orTF[B] given (O: Or[B], T: TruthValues[B]): B = or(⊤, ⊥)
+    def notF[B] given (N: Not[B], T: TruthValues[B]): B = not(⊥)
+    def notAndTNotF[B] given (A: And[B], N: Not[B], T: TruthValues[B]): B = not(and(⊤, not(⊥)))
+
+    def implication[B] given (A: And[B], N: Not[B], V: Variable[B]): B =
+    not(and("a".?, not("b".?)))
+
     import RunDSL.run
 
     println("+ Some expressions")
@@ -54,7 +58,18 @@ object Main {
     println("+ Variable binding with no change on non-bound")
     (implication : BindIfPossible[Stringify]).run("a" |-> ⊤).run(System.out) ; println
     (implication : NNF[BindIfPossible[Stringify]]).run.run("a" |-> ⊤).run(System.out) ; println
+  }
 
+  def parser: Unit = {
+    import implied Position._
+
+    val xy = 'x' ~ 'y'
+    val xHiMum = 'x' ~ "Hi mum"
+    val hiMumX = "hi mum" ~ 'x'
+    val hiMumHiMum = "hi mum" ~ "hi mum"
+
+    val xyHiMum = xy ~ "Hi mum"
+    val hiMumXxy = hiMumX ~ xy
 
   }
 }

@@ -35,6 +35,33 @@ object PositiveInt {
 
 
 
+implied ToTokenParser[Token, R] given (T: TokenParser[Token, R]) for Conversion[Token, R] = T.token
+implied ToBufferParser[Buffer, R] given (B: BufferParser[Buffer, R]) for Conversion[Buffer, R] = B.tokens
+
+implied ParserSyntax {
+  inline def succeed[R] given (R: Parser[R]) = R.succeed
+  inline def fail[R] given (R: Parser[R]) = R.fail
+
+  inline def beginning[R] given (R: ParserLocations[R]) = R.beginning
+  inline def ending[R] given (R: ParserLocations[R]) = R.ending
+
+  inline def anyToken[Token, R] given (R: TokenParser[Token, R]): R = R.anyToken
+
+  inline def (lhs: P) ~ [P, Q, R] (rhs: Q) given (PQR: ParseOneThenOther[P, Q, R]): R = lhs andThen rhs
+//  inline def (lhs: P) ~ [P, QQ, Q, R] (rhs: QQ) given (PQR: ParseOneThenOther[P, Q, R], QQ: Conversion[QQ, Q]): R = lhs andThen QQ(rhs)
+  inline def (lhs: P) | [P, Q, R] (rhs: Q) given ParseOneOrOther[P, Q, R]: R = lhs orAlternatively rhs
+  inline def (lhs: P) ? [P, Q, R] given (R: ParseRepeatedly[P, Q, R], Q: Parser[Q]): R =
+    lhs.repeatedly(sep = Q.succeed, maxTimes = PositiveInt(1))
+  inline def (lhs: P) * [P, Q, R] given (R: ParseRepeatedly[P, Q, R], Q: Parser[Q]): R =
+    lhs.repeatedly(sep = Q.succeed)
+  inline def (lhs: P) + [P, Q, R] given (R: ParseRepeatedly[P, Q, R], Q: Parser[Q]): R =
+    lhs.repeatedly(sep = Q.succeed, minTimes = NonNegativeInt(1))
+  inline def (lhs: P) + [P, Q, R] (min: Int, max: Int) given (R: ParseRepeatedly[P, Q, R], Q: Parser[Q]): R =
+    lhs.repeatedly(sep = Q.succeed, minTimes = NonNegativeInt(min), maxTimes = PositiveInt(max))
+}
+
+
+
 /** Generalised base cases for parsers.
   *
   * @tparam R   Parser representation type
@@ -46,8 +73,6 @@ trait Parser[R] {
   /** The parser that consumes no input and always fails */
   def fail: R
 }
-
-
 
 
 /** A parser that supports looking ahead into the input. */
@@ -91,7 +116,7 @@ trait TokenParser[Token, R] {
 
 
 /** A parser that can efficiently match strings for tokens. */
-trait TokenStringParser[Buffer, R] {
+trait BufferParser[Buffer, R] {
   /** Match a sequence for tokens in-order. */
   def tokens(ts: Buffer): R
   // tokens("") ~~> success
@@ -110,6 +135,16 @@ trait ParseOneThenOther[P, Q, R] {
     * The combined parser will require both to match, or fail.
     */
   def (lhs: P) andThen (rhs: Q): R
+}
+
+object ParseOneThenOther {
+
+  implied ConvertPQ[PP, QQ, P, Q, R]
+    given (PP: Conversion[PP, P], QQ: Conversion[QQ, Q], R: ParseOneThenOther[P, Q, R]) for ParseOneThenOther[PP, QQ, R] {
+    override def (lhs: PP) andThen (rhs: QQ) = R.andThen(lhs)(rhs)
+  }
+
+
 }
 
 
