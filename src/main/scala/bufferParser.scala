@@ -114,8 +114,8 @@ object Position {
   }
 
   implied PositionBufferParser[Buffer, Token]
-    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for BufferParser[Buffer, Position[Buffer]] {
-    override def tokens(ts: Buffer) = (buff, pos) => {
+    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for BufferParser[Buffer, Position[Buffer]] =
+      (ts) => (buff, pos) => {
       val tsl = ts.length
       val bfl = buff.length
       def test(bi: NonNegativeInt, ti: NonNegativeInt): PositionResult =
@@ -126,10 +126,10 @@ object Position {
 
       test(pos, NonNegativeInt(0))
     }
-  }
 
-  implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[Position[Buffer], Position[Buffer], Position[Buffer]] {
-    override def andThen(lhs: Position[Buffer], rhs: Position[Buffer]): Position[Buffer] = (buff, pos) =>
+
+  implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[Position[Buffer], Position[Buffer], Position[Buffer]] =
+    (lhs, rhs) => (buff, pos) =>
       lhs(buff, pos)(new {
         override def matched(lhsEnd: NonNegativeInt) = rhs(buff, lhsEnd)(new {
           override def matched(rhsEnd: NonNegativeInt) = PositionResult.wasMatch(rhsEnd)
@@ -137,10 +137,10 @@ object Position {
         })
         override def mismatched = PositionResult.wasMismatch
       })
-  }
 
-  implied PositionParseOneOrOther[Buffer] for ParseOneOrOther[Position[Buffer], Position[Buffer], Position[Buffer]] {
-    override def (lhs: Position[Buffer]) orAlternatively (rhs: Position[Buffer]): Position[Buffer] = (buff, pos) =>
+
+  implied PositionParseOneOrOther[Buffer] for ParseOneOrOther[Position[Buffer], Position[Buffer], Position[Buffer]] =
+    (lhs, rhs) => (buff, pos) =>
       lhs(buff, pos)(new {
         override def matched(lhsEnd: NonNegativeInt) = PositionResult.wasMatch(lhsEnd)
         override def mismatched = rhs(buff, pos)(new {
@@ -148,7 +148,6 @@ object Position {
           override def mismatched = PositionResult.wasMismatch
         })
       })
-  }
 }
 
 

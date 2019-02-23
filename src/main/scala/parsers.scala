@@ -49,7 +49,7 @@ implied ParserSyntax {
 
   inline def (lhs: P) ~ [P, Q, R] (rhs: Q) given (PQR: ParseOneThenOther[P, Q, R]): R = PQR.andThen(lhs, rhs)
 
-  inline def (lhs: P) | [P, Q, R] (rhs: Q) given ParseOneOrOther[P, Q, R]: R = lhs orAlternatively rhs
+  inline def (lhs: P) | [P, Q, R] (rhs: Q) given (PQR: ParseOneOrOther[P, Q, R]): R = PQR.orAlternatively(lhs, rhs)
   inline def (lhs: P) ? [P, Q, R] given (R: ParseRepeatedly[P, Q, R], Q: Parser[Q]): R =
     lhs.repeatedly(sep = Q.succeed, maxTimes = PositiveInt(1))
   inline def (lhs: P) * [P, Q, R] given (R: ParseRepeatedly[P, Q, R], Q: Parser[Q]): R =
@@ -157,7 +157,15 @@ trait ParseOneOrOther[P, Q, R] {
   /** Combine two parsers so that the first one is tried, and if it fails, the second one is tried.
     * The combined parser will succeed if either do, or fail if both fail.
     */
-  def (lhs: P) orAlternatively (rhs: Q): R
+  def orAlternatively(lhs: P, rhs: Q): R
+}
+
+object ParseOneOrOther {
+
+  implied ConvertPQ[PP, QQ, P, Q, R]
+    given (PP: Conversion[PP, P], QQ: Conversion[QQ, Q], R: ParseOneOrOther[P, Q, R]) for ParseOneOrOther[PP, QQ, R] =
+      (lhs, rhs) => R.orAlternatively(lhs, rhs)
+
 }
 
 
@@ -202,7 +210,7 @@ object ParseRepeatedly {
 
       def untilMax(next: P, max: Int): P =
         if(max <= 0) P.succeed
-        else (next ~ untilMax(qp, max - 1)) orAlternatively P.succeed
+        else (next ~ untilMax(qp, max - 1)) | P.succeed
 
       whileMin(p, minTimes.toInt)
     }
