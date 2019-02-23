@@ -2,7 +2,7 @@ import scala.language.implicitConversions
 
 object Main {
 
-  def main(args: Array[String]): Unit = logic
+  def main(args: Array[String]): Unit = { logic ; parser }
 
   def logic: Unit = {
 
@@ -21,8 +21,6 @@ object Main {
 
     def implication[B] given (A: And[B], N: Not[B], V: Variable[B]): B =
     not(and("a".?, not("b".?)))
-
-    import RunDSL.run
 
     println("+ Some expressions")
     (andTF : Stringify).run(System.out) ; println
@@ -64,6 +62,7 @@ object Main {
     import implied Position._
 
     val xy = 'x' ~ 'y'
+    val xyEnd = xy ~ ParserSyntax.ending
     val xHiMum = 'x' ~ "Hi mum"
     val hiMumX = "hi mum" ~ 'x'
     val hiMumHiMum = "hi mum" ~ "hi mum"
@@ -71,7 +70,22 @@ object Main {
     val xyHiMum = xy ~ "Hi mum"
     val hiMumXxy = hiMumX ~ xy
 
+    val printResult:  MatchPosition[Unit] = new {
+      override def matched(endingBefore: NonNegativeInt) = println(s"Matched input up until $endingBefore")
+      override def mismatched: Unit = println("Mismatched input")
+    }
 
+    println("Parsing with xy")
+    xy.run("xy")(printResult)
+    xy.run("x")(printResult)
+    xy.run("xyz")(printResult)
+    xy.run("yx")(printResult)
+
+    println("Parsing with xy~ending")
+    xyEnd.run("xy")(printResult)
+    xyEnd.run("x")(printResult)
+    xyEnd.run("xyz")(printResult)
+    xyEnd.run("yx")(printResult)
 
   }
 }

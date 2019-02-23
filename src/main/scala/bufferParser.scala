@@ -97,19 +97,19 @@ object Position {
       PositionResult.wasMatch(pos + 1)
 
       override def token(t: Token): Position[Buffer] = (buff, pos) =>
-      if(E.equiv(buff tokenAt pos, t)) PositionResult.wasMatch(pos + 1)
+      if(pos < buff.length && E.equiv(buff tokenAt pos, t)) PositionResult.wasMatch(pos + 1)
       else PositionResult.wasMismatch
 
       override def anyOf(ts: Seq[Token]*) =
     {
       val tokens = Set.empty ++ ts.flatten
       (buff, pos) =>
-        if (tokens contains (buff tokenAt pos)) PositionResult.wasMatch(pos + 1)
+        if (pos < buff.length && (tokens contains (buff tokenAt pos))) PositionResult.wasMatch(pos + 1)
         else PositionResult.wasMismatch
     }
 
     override def forAny(p: Token => Boolean) = (buff, pos) =>
-      if(p(buff tokenAt pos)) PositionResult.wasMatch(pos + 1)
+      if(pos < buff.length && p(buff tokenAt pos)) PositionResult.wasMatch(pos + 1)
       else PositionResult.wasMismatch
   }
 
@@ -148,7 +148,11 @@ object Position {
           override def mismatched = PositionResult.wasMismatch
         })
       })
+
+  implied RunPositionParser[Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult] = p => p(_, NonNegativeInt(0))
 }
+
+implied [Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult] = Position.RunPositionParser
 
 
 //trait JsonParser[R] {
