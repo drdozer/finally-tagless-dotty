@@ -129,7 +129,7 @@ object Position {
   }
 
   implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[Position[Buffer], Position[Buffer], Position[Buffer]] {
-    override def (lhs: Position[Buffer]) andThen (rhs: Position[Buffer]): Position[Buffer] = (buff, pos) =>
+    override def andThen(lhs: Position[Buffer], rhs: Position[Buffer]): Position[Buffer] = (buff, pos) =>
       lhs(buff, pos)(new {
         override def matched(lhsEnd: NonNegativeInt) = rhs(buff, lhsEnd)(new {
           override def matched(rhsEnd: NonNegativeInt) = PositionResult.wasMatch(rhsEnd)
@@ -153,11 +153,6 @@ object Position {
 
 
 //trait JsonParser[R] {
-//  def (l: R) ? = l.rep(min = 0, max = 1)
-//  def (l: R) + = l.rep(min = 1)
-//  def (l: R) * = l.rep
-//  def (l: R) ~ (r: R) = l andThen r
-//  def (l: R) | (r: R) = l orAlternatively r
 //
 //  def l ~~ r = l ~ whitespace.? ~ r
 //

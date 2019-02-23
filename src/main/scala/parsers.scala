@@ -47,8 +47,8 @@ implied ParserSyntax {
 
   inline def anyToken[Token, R] given (R: TokenParser[Token, R]): R = R.anyToken
 
-  inline def (lhs: P) ~ [P, Q, R] (rhs: Q) given (PQR: ParseOneThenOther[P, Q, R]): R = lhs andThen rhs
-//  inline def (lhs: P) ~ [P, QQ, Q, R] (rhs: QQ) given (PQR: ParseOneThenOther[P, Q, R], QQ: Conversion[QQ, Q]): R = lhs andThen QQ(rhs)
+  inline def (lhs: P) ~ [P, Q, R] (rhs: Q) given (PQR: ParseOneThenOther[P, Q, R]): R = PQR.andThen(lhs, rhs)
+
   inline def (lhs: P) | [P, Q, R] (rhs: Q) given ParseOneOrOther[P, Q, R]: R = lhs orAlternatively rhs
   inline def (lhs: P) ? [P, Q, R] given (R: ParseRepeatedly[P, Q, R], Q: Parser[Q]): R =
     lhs.repeatedly(sep = Q.succeed, maxTimes = PositiveInt(1))
@@ -134,16 +134,14 @@ trait ParseOneThenOther[P, Q, R] {
   /** Combine two parsers so that the first one will attempt to match, and if it does, the second one will.
     * The combined parser will require both to match, or fail.
     */
-  def (lhs: P) andThen (rhs: Q): R
+  def andThen(lhs: P, rhs: Q): R
 }
 
 object ParseOneThenOther {
 
   implied ConvertPQ[PP, QQ, P, Q, R]
-    given (PP: Conversion[PP, P], QQ: Conversion[QQ, Q], R: ParseOneThenOther[P, Q, R]) for ParseOneThenOther[PP, QQ, R] {
-    override def (lhs: PP) andThen (rhs: QQ) = R.andThen(lhs)(rhs)
-  }
-
+    given (PP: Conversion[PP, P], QQ: Conversion[QQ, Q], R: ParseOneThenOther[P, Q, R]) for ParseOneThenOther[PP, QQ, R] =
+      (lhs, rhs) => R.andThen(lhs, rhs)
 
 }
 
@@ -196,15 +194,15 @@ object ParseRepeatedly {
       maxTimes: PositiveInt = PositiveInt(Integer.MAX_VALUE)): P = {
 
       val p = lhs
-      val qp = sep andThen p
+      val qp = sep ~ p
 
       def whileMin(next: P, min: Int): P =
         if(min <= 0) untilMax(next, maxTimes.toInt - minTimes.toInt)
-        else next andThen whileMin(qp, min - 1)
+        else next ~ whileMin(qp, min - 1)
 
       def untilMax(next: P, max: Int): P =
         if(max <= 0) P.succeed
-        else (next andThen untilMax(qp, max - 1)) orAlternatively P.succeed
+        else (next ~ untilMax(qp, max - 1)) orAlternatively P.succeed
 
       whileMin(p, minTimes.toInt)
     }
