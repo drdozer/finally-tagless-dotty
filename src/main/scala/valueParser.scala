@@ -23,18 +23,23 @@ opaque type Value[Buffer, A] = (Buffer, NonNegativeInt) => ValueResult[A]
 object Value {
   import Position._
 
-  def capture[Buffer, Token](p: Position[Buffer]) given TokenBuffer[Buffer, Token]: Value[Buffer, Buffer] =
-  (buff, pos) =>
-    p(buff, pos)(new {
-      override def matched(end: NonNegativeInt) = ValueResult.wasMatch(end, buff.subBuffer(pos, end))
+  def apply[Buffer, A](p: (Buffer, NonNegativeInt) => ValueResult[A]): Value[Buffer, A] = p
+
+  //  // todo: move capture to a typeclass to enable rewrites
+  //  def capture[Buffer, Token](p: Position[Buffer]) given TokenBuffer[Buffer, Token]: Value[Buffer, Buffer] =
+  //  (buff, pos) =>
+  //    p(buff, pos)(new {
+  //      override def matched(end: NonNegativeInt) = ValueResult.wasMatch(end, buff.subBuffer(pos, end))
+  //      override def mismatched = ValueResult.wasMismatch
+  //    })
+
+  implied ValueMapper[Buffer] for Mappable[[A] => Value[Buffer, A]] {
+    def (p: Value[Buffer, A]) map[A, B](f: A => B): Value[Buffer, B] =
+    (buff, pos) => p(buff, pos)(new MatchValue[Const[ValueResult[B]], A] {
+      override def matched(end: NonNegativeInt, value: A) = ValueResult.wasMatch(end, f(value))
       override def mismatched = ValueResult.wasMismatch
     })
-
-  def (p: Value[Buffer, A]) map[Buffer, A, B](f: A => B): Value[Buffer, B] =
-  (buff, pos) => p(buff, pos)(new MatchValue[Const[ValueResult[B]], A] {
-    override def matched(end: NonNegativeInt, value: A) = ValueResult.wasMatch(end, f(value))
-    override def mismatched = ValueResult.wasMismatch
-  })
+  }
 
   implied ValueAndThenPosition[Buffer, A] for ParseOneThenOther[Value[Buffer, A], Position[Buffer], Value[Buffer, A]] =
     (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {

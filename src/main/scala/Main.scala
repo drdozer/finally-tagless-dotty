@@ -95,21 +95,21 @@ object Main {
 
     println("Capturing with xy")
     println("Parsing with xy")
-    capture(xy).run("xy")(printValue)
-    capture(xy).run("x")(printValue)
-    capture(xy).run("xyz")(printValue)
-    capture(xy).run("yx")(printValue)
+    xy.capture.run("xy")(printValue)
+    xy.capture.run("x")(printValue)
+    xy.capture.run("xyz")(printValue)
+    xy.capture.run("yx")(printValue)
 
     println("Composing capture")
-    val cXy = capture(xy) ~ hiMumX
+    val cXy = xy.capture ~ hiMumX
     cXy.run("xyhi mumx")(printValue)
     cXy.run("xyhi mum")(printValue)
 
-    val cHiMumx = xy ~ capture(hiMumX)
+    val cHiMumx = xy ~ hiMumX.capture
     cHiMumx.run("xyhi mumx")(printValue)
     cHiMumx.run("xyhi mum")(printValue)
 
-    val cXyHiMumx = capture(xy) ~ capture(hiMumX)
+    val cXyHiMumx = xy.capture ~ hiMumX.capture
     cXyHiMumx.run("xyhi mumx")(printValue)
     cXyHiMumx.run("xyhi mum")(printValue)
 

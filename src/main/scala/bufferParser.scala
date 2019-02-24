@@ -149,7 +149,20 @@ object Position {
         })
       })
 
+
   implied RunPositionParser[Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult] = p => p(_, NonNegativeInt(0))
+
+
+  implied CapturePositionAsValue[Buffer, Token] given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, Position[Buffer], [A] => Value[Buffer, A]] {
+    def (p: Position[Buffer]) capture = Value { (buff, pos) =>
+      p(buff, pos)(new {
+        override def matched(end: NonNegativeInt) = ValueResult.wasMatch(end, buff.subBuffer(pos, end))
+
+        override def mismatched = ValueResult.wasMismatch
+      })
+    }
+
+  }
 
   inline def (p: Position[Buffer]) apply[Buffer](buff: Buffer, pos: NonNegativeInt): PositionResult = (p: (Buffer, NonNegativeInt) => PositionResult)(buff, pos)
 }
