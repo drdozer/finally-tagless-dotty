@@ -76,9 +76,9 @@ object Main {
       override def mismatched: Unit = println("Mismatched input")
     }
 
-    def printValue:  MatchValue[Const[Unit]] = new {
-      override def matched[A](endingBefore: NonNegativeInt, value: A): Const[Unit][A] = println(s"Matched input up until $endingBefore with $value")
-      override def mismatched[A]: Const[Unit][A] = println("Mismatched input")
+    def printValue[A]:  MatchValue[Const[Unit], A] = new {
+      override def matched(endingBefore: NonNegativeInt, value: A) = println(s"Matched input up until $endingBefore with $value")
+      override def mismatched = println("Mismatched input")
     }
 
     println("Parsing with xy")
@@ -99,5 +99,19 @@ object Main {
     capture(xy).run("x")(printValue)
     capture(xy).run("xyz")(printValue)
     capture(xy).run("yx")(printValue)
+
+    println("Composing capture")
+    val cXy = capture(xy) ~ hiMumX
+    cXy.run("xyhi mumx")(printValue)
+    cXy.run("xyhi mum")(printValue)
+
+    val cHiMumx = xy ~ capture(hiMumX)
+    cHiMumx.run("xyhi mumx")(printValue)
+    cHiMumx.run("xyhi mum")(printValue)
+
+    val cXyHiMumx = capture(xy) ~ capture(hiMumX)
+    cXyHiMumx.run("xyhi mumx")(printValue)
+    cXyHiMumx.run("xyhi mum")(printValue)
+
   }
 }
