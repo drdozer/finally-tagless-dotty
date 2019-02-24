@@ -113,5 +113,11 @@ object Main {
     cXyHiMumx.run("xyhi mumx")(printValue)
     cXyHiMumx.run("xyhi mum")(printValue)
 
+    println("Alternatives")
+    val xyOrHiMum = xy.capture | hiMumX.capture
+    xyOrHiMum.run("bob")(printValue)
+    xyOrHiMum.run("xy")(printValue)
+    xyOrHiMum.run("hi mumx")(printValue)
+
   }
 }
