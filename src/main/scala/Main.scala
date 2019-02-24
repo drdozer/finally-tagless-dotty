@@ -60,6 +60,7 @@ object Main {
 
   def parser: Unit = {
     import implied Position._
+    import Value._
 
     val xy = 'x' ~ 'y'
     val xyEnd = xy ~ ParserSyntax.ending
@@ -70,22 +71,33 @@ object Main {
     val xyHiMum = xy ~ "Hi mum"
     val hiMumXxy = hiMumX ~ xy
 
-    val printResult:  MatchPosition[Unit] = new {
+    val printPosition:  MatchPosition[Unit] = new {
       override def matched(endingBefore: NonNegativeInt) = println(s"Matched input up until $endingBefore")
       override def mismatched: Unit = println("Mismatched input")
     }
 
+    def printValue:  MatchValue[Const[Unit]] = new {
+      override def matched[A](endingBefore: NonNegativeInt, value: A): Const[Unit][A] = println(s"Matched input up until $endingBefore with $value")
+      override def mismatched[A]: Const[Unit][A] = println("Mismatched input")
+    }
+
     println("Parsing with xy")
-    xy.run("xy")(printResult)
-    xy.run("x")(printResult)
-    xy.run("xyz")(printResult)
-    xy.run("yx")(printResult)
+    xy.run("xy")(printPosition)
+    xy.run("x")(printPosition)
+    xy.run("xyz")(printPosition)
+    xy.run("yx")(printPosition)
 
     println("Parsing with xy~ending")
-    xyEnd.run("xy")(printResult)
-    xyEnd.run("x")(printResult)
-    xyEnd.run("xyz")(printResult)
-    xyEnd.run("yx")(printResult)
+    xyEnd.run("xy")(printPosition)
+    xyEnd.run("x")(printPosition)
+    xyEnd.run("xyz")(printPosition)
+    xyEnd.run("yx")(printPosition)
 
+    println("Capturing with xy")
+    println("Parsing with xy")
+    capture(xy).run("xy")(printValue)
+    capture(xy).run("x")(printValue)
+    capture(xy).run("xyz")(printValue)
+    capture(xy).run("yx")(printValue)
   }
 }

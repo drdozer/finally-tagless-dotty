@@ -150,6 +150,8 @@ object Position {
       })
 
   implied RunPositionParser[Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult] = p => p(_, NonNegativeInt(0))
+
+  inline def (p: Position[Buffer]) apply[Buffer](buff: Buffer, pos: NonNegativeInt): PositionResult = (p: (Buffer, NonNegativeInt) => PositionResult)(buff, pos)
 }
 
 implied [Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult] = Position.RunPositionParser
