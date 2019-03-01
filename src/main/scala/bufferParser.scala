@@ -62,8 +62,9 @@ object Result {
   }
 }
 
-opaque type Parse[Buffer, In, Out] = (Buffer, In) => Result[Out]
 // todo: there's a dotty bug with type aliases for opaques
+// todo: it works if we remove the `opaque` modifier from `Parse`
+type Parse[Buffer, In, Out] = (Buffer, In) => Result[Out]
 type ParseAt[Buffer] = Parse[Buffer, NonNegativeInt, NonNegativeInt]
 
 object Parse {
@@ -155,12 +156,13 @@ object Parse {
   implied RunPositionParser[Buffer] for RunDSL[ParseAt[Buffer], Buffer => Result[NonNegativeInt]] = p => p(_, NonNegativeInt(0))
 
 
-  implied CapturePositionAsValue[Buffer, Token] given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, ParseAt[Buffer], [A] => Value[Buffer, A]] {
-    def (p: ParseAt[Buffer]) capture = Value { (buff, pos) =>
+  implied CapturePositionAsValue[Buffer, Token]
+    given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, ParseAt[Buffer], [A] => ParseValue[Buffer, A]] {
+    def (p: ParseAt[Buffer]) capture = { (buff, pos) =>
       p(buff, pos)(new {
-        override def matched = end => ValueResult.wasMatch(end, buff.subBuffer(pos, end))
+        override def matched = end => Result.wasMatch(end, buff.subBuffer(pos, end))
 
-        override def mismatched = ValueResult.wasMismatch
+        override def mismatched = Result.wasMismatch
       })
     }
 
