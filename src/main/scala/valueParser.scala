@@ -39,7 +39,7 @@ object Value {
   implied ValueAndThenPosition[Buffer, A] for ParseOneThenOther[Value[Buffer, A], Position[Buffer], Value[Buffer, A]] =
     (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
       override def matched(lEnd: NonNegativeInt, value: A) = rhs(buff, lEnd)(new {
-        override def matched(rEnd: NonNegativeInt) = ValueResult.wasMatch(rEnd, value)
+        override def matched = ValueResult.wasMatch(_, value)
         override def mismatched = ValueResult.wasMismatch
       })
       override def mismatched = ValueResult.wasMismatch
@@ -48,7 +48,7 @@ object Value {
 
   implied PositionAndThenValue[Buffer, B] for ParseOneThenOther[Position[Buffer], Value[Buffer, B], Value[Buffer, B]] =
     (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
-      override def matched(lEnd: NonNegativeInt) = rhs(buff, lEnd)(new {
+      override def matched = rhs(buff, _)(new {
         override def matched(rEnd: NonNegativeInt, value: B) = ValueResult.wasMatch(rEnd, value)
         override def mismatched = ValueResult.wasMismatch
       })

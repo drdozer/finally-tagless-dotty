@@ -72,7 +72,7 @@ object Main {
     val hiMumXxy = hiMumX ~ xy
 
     val printPosition:  MatchPosition[Unit] = new {
-      override def matched(endingBefore: NonNegativeInt) = println(s"Matched input up until $endingBefore")
+      override def matched = endingBefore => println(s"Matched input up until $endingBefore")
       override def mismatched: Unit = println("Mismatched input")
     }
 

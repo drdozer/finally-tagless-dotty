@@ -31,7 +31,7 @@ implied CharSequenceTokenBuffer for TokenBuffer[CharSequence, Char] {
 
 
 trait MatchPosition[M] {
-  def matched(endingBefore: NonNegativeInt): M
+  def matched: NonNegativeInt => M
   def mismatched: M
 }
 
@@ -50,12 +50,12 @@ object PositionResult {
   }
 
   def handleMatch(m: NonNegativeInt => NonNegativeInt = identity): MatchPosition[PositionResult] = new {
-    override def matched(endingBefore: NonNegativeInt) = wasMatch(m(endingBefore))
+    override def matched = endingBefore => wasMatch(m(endingBefore))
     override def mismatched = wasMismatch
   }
 
   def matchIf(f: NonNegativeInt => Boolean, m: NonNegativeInt => NonNegativeInt = identity): MatchPosition[PositionResult] = new {
-    override def matched(endingBefore: NonNegativeInt) =
+    override def matched = endingBefore =>
       if(f(endingBefore)) wasMatch(m(endingBefore))
       else wasMismatch
     override def mismatched = wasMismatch
@@ -76,7 +76,7 @@ object Position {
       lhs(buff, pos)(PositionResult.handleMatch(_ => pos))
 
     override def negativeLookAhead(lhs: Position[Buffer]): Position[Buffer] = (buff, pos) => lhs(buff, pos)(new {
-      override def matched(endingBefore: NonNegativeInt) = PositionResult.wasMismatch
+      override def matched = endingBefore => PositionResult.wasMismatch
       override def mismatched = PositionResult.wasMatch(pos)
     })
   }
@@ -131,8 +131,8 @@ object Position {
   implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[Position[Buffer], Position[Buffer], Position[Buffer]] =
     (lhs, rhs) => (buff, pos) =>
       lhs(buff, pos)(new {
-        override def matched(lhsEnd: NonNegativeInt) = rhs(buff, lhsEnd)(new {
-          override def matched(rhsEnd: NonNegativeInt) = PositionResult.wasMatch(rhsEnd)
+        override def matched = rhs(buff, _)(new {
+          override def matched = PositionResult.wasMatch
           override def mismatched = PositionResult.wasMismatch
         })
         override def mismatched = PositionResult.wasMismatch
@@ -142,9 +142,9 @@ object Position {
   implied PositionParseOneOrOther[Buffer] for ParseOneOrOther[Position[Buffer], Position[Buffer], Position[Buffer]] =
     (lhs, rhs) => (buff, pos) =>
       lhs(buff, pos)(new {
-        override def matched(lhsEnd: NonNegativeInt) = PositionResult.wasMatch(lhsEnd)
+        override def matched = PositionResult.wasMatch
         override def mismatched = rhs(buff, pos)(new {
-          override def matched(rhsEnd: NonNegativeInt) = PositionResult.wasMatch(rhsEnd)
+          override def matched = PositionResult.wasMatch
           override def mismatched = PositionResult.wasMismatch
         })
       })
@@ -156,7 +156,7 @@ object Position {
   implied CapturePositionAsValue[Buffer, Token] given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, Position[Buffer], [A] => Value[Buffer, A]] {
     def (p: Position[Buffer]) capture = Value { (buff, pos) =>
       p(buff, pos)(new {
-        override def matched(end: NonNegativeInt) = ValueResult.wasMatch(end, buff.subBuffer(pos, end))
+        override def matched = end => ValueResult.wasMatch(end, buff.subBuffer(pos, end))
 
         override def mismatched = ValueResult.wasMismatch
       })
