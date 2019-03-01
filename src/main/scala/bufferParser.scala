@@ -41,12 +41,12 @@ trait Result[S] {
 }
 
 object Result {
-  def wasMatch(endingBefore: NonNegativeInt): Result[NonNegativeInt] = new {
-    override def apply[M](mr: ParseResult[NonNegativeInt, M]): M = mr.matched(endingBefore)
+  def wasMatch[S](s: S): Result[S] = new {
+    override def apply[M](mr: ParseResult[S, M]): M = mr.matched(s)
   }
   // object? val? def? what will be best for inlining/erasing?
-  object wasMismatch extends Result[NonNegativeInt] {
-    override def apply[M](mr: ParseResult[NonNegativeInt, M]): M = mr.mismatched
+  def wasMismatch[S]: Result[S] = new {
+    override def apply[M](mr: ParseResult[S, M]): M = mr.mismatched
   }
 
   def handleMatch(m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, Result[NonNegativeInt]] = new {
@@ -62,27 +62,29 @@ object Result {
   }
 }
 
-opaque type Parse[Buffer] = (Buffer, NonNegativeInt) => Result[NonNegativeInt]
+opaque type Parse[Buffer, In, Out] = (Buffer, In) => Result[Out]
+// todo: there's a dotty bug with type aliases for opaques
+type ParseAt[Buffer] = Parse[Buffer, NonNegativeInt, NonNegativeInt]
 
 object Parse {
 
-  implied PositionParser[Buffer] for Parser[Parse[Buffer]] {
-    override def succeed: Parse[Buffer] = (buff, pos) => Result.wasMatch(pos)
-    override def fail: Parse[Buffer] = (buff, pos) => Result.wasMismatch
+  implied PositionParser[Buffer] for Parser[ParseAt[Buffer]] {
+    override def succeed = (buff, pos) => Result.wasMatch(pos)
+    override def fail = (buff, pos) => Result.wasMismatch
   }
 
-  implied PositionLookaheadParser[Buffer] for LookaheadParser[Parse[Buffer]] {
-    override def positiveLookAhead(lhs: Parse[Buffer]): Parse[Buffer] = (buff, pos) =>
+  implied PositionLookaheadParser[Buffer] for LookaheadParser[ParseAt[Buffer]] {
+    override def positiveLookAhead(lhs: ParseAt[Buffer]) = (buff, pos) =>
       lhs(buff, pos)(Result.handleMatch(_ => pos))
 
-    override def negativeLookAhead(lhs: Parse[Buffer]): Parse[Buffer] = (buff, pos) => lhs(buff, pos)(new {
+    override def negativeLookAhead(lhs: ParseAt[Buffer]) = (buff, pos) => lhs(buff, pos)(new {
       override def matched = endingBefore => Result.wasMismatch
       override def mismatched = Result.wasMatch(pos)
     })
   }
 
   implied PositionParserLocations[Buffer, Token]
-    given (TB: TokenBuffer[Buffer, Token]) for ParserLocations[Parse[Buffer]] {
+    given (TB: TokenBuffer[Buffer, Token]) for ParserLocations[ParseAt[Buffer]] {
     override def beginning = (buff, pos) =>
       if(pos == NonNegativeInt(0)) Result.wasMatch(pos)
       else Result.wasMismatch
@@ -92,11 +94,11 @@ object Parse {
   }
 
   implied PositionTokenParser[Buffer, Token]
-    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenParser[Token, Parse[Buffer]] {
-    override def anyToken: Parse[Buffer] = (buff, pos) =>
+    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenParser[Token, ParseAt[Buffer]] {
+    override def anyToken = (buff, pos) =>
       Result.wasMatch(pos + 1)
 
-      override def token(t: Token): Parse[Buffer] = (buff, pos) =>
+      override def token(t: Token) = (buff, pos) =>
       if(pos < buff.length && E.equiv(buff tokenAt pos, t)) Result.wasMatch(pos + 1)
       else Result.wasMismatch
 
@@ -114,7 +116,7 @@ object Parse {
   }
 
   implied PositionBufferParser[Buffer, Token]
-    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for BufferParser[Buffer, Parse[Buffer]] =
+    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for BufferParser[Buffer, ParseAt[Buffer]] =
       (ts) => (buff, pos) => {
       val tsl = ts.length
       val bfl = buff.length
@@ -128,7 +130,7 @@ object Parse {
     }
 
 
-  implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[Parse[Buffer], Parse[Buffer], Parse[Buffer]] =
+  implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[ParseAt[Buffer], ParseAt[Buffer], ParseAt[Buffer]] =
     (lhs, rhs) => (buff, pos) =>
       lhs(buff, pos)(new {
         override def matched = rhs(buff, _)(new {
@@ -139,7 +141,7 @@ object Parse {
       })
 
 
-  implied PositionParseOneOrOther[Buffer] for ParseOneOrOther[Parse[Buffer], Parse[Buffer], Parse[Buffer]] =
+  implied PositionParseOneOrOther[Buffer] for ParseOneOrOther[ParseAt[Buffer], ParseAt[Buffer], ParseAt[Buffer]] =
     (lhs, rhs) => (buff, pos) =>
       lhs(buff, pos)(new {
         override def matched = Result.wasMatch
@@ -150,11 +152,11 @@ object Parse {
       })
 
 
-  implied RunPositionParser[Buffer] for RunDSL[Parse[Buffer], Buffer => Result[NonNegativeInt]] = p => p(_, NonNegativeInt(0))
+  implied RunPositionParser[Buffer] for RunDSL[ParseAt[Buffer], Buffer => Result[NonNegativeInt]] = p => p(_, NonNegativeInt(0))
 
 
-  implied CapturePositionAsValue[Buffer, Token] given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, Parse[Buffer], [A] => Value[Buffer, A]] {
-    def (p: Parse[Buffer]) capture = Value { (buff, pos) =>
+  implied CapturePositionAsValue[Buffer, Token] given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, ParseAt[Buffer], [A] => Value[Buffer, A]] {
+    def (p: ParseAt[Buffer]) capture = Value { (buff, pos) =>
       p(buff, pos)(new {
         override def matched = end => ValueResult.wasMatch(end, buff.subBuffer(pos, end))
 
@@ -164,10 +166,10 @@ object Parse {
 
   }
 
-  inline def (p: Parse[Buffer]) apply[Buffer](buff: Buffer, pos: NonNegativeInt): Result[NonNegativeInt] = (p: (Buffer, NonNegativeInt) => Result[NonNegativeInt])(buff, pos)
+  inline def (p: ParseAt[Buffer]) apply[Buffer](buff: Buffer, pos: NonNegativeInt): Result[NonNegativeInt] = (p: (Buffer, NonNegativeInt) => Result[NonNegativeInt])(buff, pos)
 }
 
-implied [Buffer] for RunDSL[Parse[Buffer], Buffer => Result[NonNegativeInt]] = Parse.RunPositionParser
+implied [Buffer] for RunDSL[ParseAt[Buffer], Buffer => Result[NonNegativeInt]] = Parse.RunPositionParser
 
 
 //trait JsonParser[R] {
