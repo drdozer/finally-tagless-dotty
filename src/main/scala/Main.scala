@@ -59,8 +59,8 @@ object Main {
   }
 
   def parser: Unit = {
-    import implied Position._
-    import Value._
+    import implied Parse._
+    import implied Value._
 
     val xy = 'x' ~ 'y'
     val xyEnd = xy ~ ParserSyntax.ending
@@ -71,12 +71,12 @@ object Main {
     val xyHiMum = xy ~ "Hi mum"
     val hiMumXxy = hiMumX ~ xy
 
-    val printPosition:  MatchPosition[Unit] = new {
+    val printPosition:  ParseResult[NonNegativeInt, Unit] = new {
       override def matched = endingBefore => println(s"Matched input up until $endingBefore")
       override def mismatched: Unit = println("Mismatched input")
     }
 
-    def printValue[A]:  MatchValue[Const[Unit], A] = new {
+    def printValue[A]:  ParseResult[(NonNegativeInt, A), Unit] = new {
       override def matched = (endingBefore, value) => println(s"Matched input up until $endingBefore with $value")
       override def mismatched = println("Mismatched input")
     }
