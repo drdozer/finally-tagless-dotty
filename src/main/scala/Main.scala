@@ -59,7 +59,7 @@ object Main {
   }
 
   def parser: Unit = {
-    import implied Position._
+    import implied Parse._
     import Value._
 
     val xy = 'x' ~ 'y'

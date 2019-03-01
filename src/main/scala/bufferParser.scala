@@ -36,25 +36,25 @@ trait ParseResult[S, M] {
 }
 
 
-trait PositionResult[S] {
+trait Result[S] {
   def apply[M](mr: ParseResult[S, M]): M
 }
 
-object PositionResult {
-  def wasMatch(endingBefore: NonNegativeInt): PositionResult[NonNegativeInt] = new {
+object Result {
+  def wasMatch(endingBefore: NonNegativeInt): Result[NonNegativeInt] = new {
     override def apply[M](mr: ParseResult[NonNegativeInt, M]): M = mr.matched(endingBefore)
   }
   // object? val? def? what will be best for inlining/erasing?
-  object wasMismatch extends PositionResult[NonNegativeInt] {
+  object wasMismatch extends Result[NonNegativeInt] {
     override def apply[M](mr: ParseResult[NonNegativeInt, M]): M = mr.mismatched
   }
 
-  def handleMatch(m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, PositionResult[NonNegativeInt]] = new {
+  def handleMatch(m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, Result[NonNegativeInt]] = new {
     override def matched = endingBefore => wasMatch(m(endingBefore))
     override def mismatched = wasMismatch
   }
 
-  def matchIf(f: NonNegativeInt => Boolean, m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, PositionResult[NonNegativeInt]] = new {
+  def matchIf(f: NonNegativeInt => Boolean, m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, Result[NonNegativeInt]] = new {
     override def matched = endingBefore =>
       if(f(endingBefore)) wasMatch(m(endingBefore))
       else wasMismatch
@@ -62,99 +62,99 @@ object PositionResult {
   }
 }
 
-opaque type Position[Buffer] = (Buffer, NonNegativeInt) => PositionResult[NonNegativeInt]
+opaque type Parse[Buffer] = (Buffer, NonNegativeInt) => Result[NonNegativeInt]
 
-object Position {
+object Parse {
 
-  implied PositionParser[Buffer] for Parser[Position[Buffer]] {
-    override def succeed: Position[Buffer] = (buff, pos) => PositionResult.wasMatch(pos)
-    override def fail: Position[Buffer] = (buff, pos) => PositionResult.wasMismatch
+  implied PositionParser[Buffer] for Parser[Parse[Buffer]] {
+    override def succeed: Parse[Buffer] = (buff, pos) => Result.wasMatch(pos)
+    override def fail: Parse[Buffer] = (buff, pos) => Result.wasMismatch
   }
 
-  implied PositionLookaheadParser[Buffer] for LookaheadParser[Position[Buffer]] {
-    override def positiveLookAhead(lhs: Position[Buffer]): Position[Buffer] = (buff, pos) =>
-      lhs(buff, pos)(PositionResult.handleMatch(_ => pos))
+  implied PositionLookaheadParser[Buffer] for LookaheadParser[Parse[Buffer]] {
+    override def positiveLookAhead(lhs: Parse[Buffer]): Parse[Buffer] = (buff, pos) =>
+      lhs(buff, pos)(Result.handleMatch(_ => pos))
 
-    override def negativeLookAhead(lhs: Position[Buffer]): Position[Buffer] = (buff, pos) => lhs(buff, pos)(new {
-      override def matched = endingBefore => PositionResult.wasMismatch
-      override def mismatched = PositionResult.wasMatch(pos)
+    override def negativeLookAhead(lhs: Parse[Buffer]): Parse[Buffer] = (buff, pos) => lhs(buff, pos)(new {
+      override def matched = endingBefore => Result.wasMismatch
+      override def mismatched = Result.wasMatch(pos)
     })
   }
 
   implied PositionParserLocations[Buffer, Token]
-    given (TB: TokenBuffer[Buffer, Token]) for ParserLocations[Position[Buffer]] {
+    given (TB: TokenBuffer[Buffer, Token]) for ParserLocations[Parse[Buffer]] {
     override def beginning = (buff, pos) =>
-      if(pos == NonNegativeInt(0)) PositionResult.wasMatch(pos)
-      else PositionResult.wasMismatch
+      if(pos == NonNegativeInt(0)) Result.wasMatch(pos)
+      else Result.wasMismatch
     override def ending = (buff, pos) =>
-      if(pos == buff.length) PositionResult.wasMatch(pos)
-      else PositionResult.wasMismatch
+      if(pos == buff.length) Result.wasMatch(pos)
+      else Result.wasMismatch
   }
 
   implied PositionTokenParser[Buffer, Token]
-    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenParser[Token, Position[Buffer]] {
-    override def anyToken: Position[Buffer] = (buff, pos) =>
-      PositionResult.wasMatch(pos + 1)
+    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for TokenParser[Token, Parse[Buffer]] {
+    override def anyToken: Parse[Buffer] = (buff, pos) =>
+      Result.wasMatch(pos + 1)
 
-      override def token(t: Token): Position[Buffer] = (buff, pos) =>
-      if(pos < buff.length && E.equiv(buff tokenAt pos, t)) PositionResult.wasMatch(pos + 1)
-      else PositionResult.wasMismatch
+      override def token(t: Token): Parse[Buffer] = (buff, pos) =>
+      if(pos < buff.length && E.equiv(buff tokenAt pos, t)) Result.wasMatch(pos + 1)
+      else Result.wasMismatch
 
       override def anyOf(ts: Seq[Token]*) =
     {
       val tokens = Set.empty ++ ts.flatten
       (buff, pos) =>
-        if (pos < buff.length && (tokens contains (buff tokenAt pos))) PositionResult.wasMatch(pos + 1)
-        else PositionResult.wasMismatch
+        if (pos < buff.length && (tokens contains (buff tokenAt pos))) Result.wasMatch(pos + 1)
+        else Result.wasMismatch
     }
 
     override def forAny(p: Token => Boolean) = (buff, pos) =>
-      if(pos < buff.length && p(buff tokenAt pos)) PositionResult.wasMatch(pos + 1)
-      else PositionResult.wasMismatch
+      if(pos < buff.length && p(buff tokenAt pos)) Result.wasMatch(pos + 1)
+      else Result.wasMismatch
   }
 
   implied PositionBufferParser[Buffer, Token]
-    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for BufferParser[Buffer, Position[Buffer]] =
+    given (TB: TokenBuffer[Buffer, Token], E: Equiv[Token]) for BufferParser[Buffer, Parse[Buffer]] =
       (ts) => (buff, pos) => {
       val tsl = ts.length
       val bfl = buff.length
-      def test(bi: NonNegativeInt, ti: NonNegativeInt): PositionResult[NonNegativeInt] =
-        if(bi >= bfl) PositionResult.wasMismatch // run off the end of the input
-        else if (ti >= tsl) PositionResult.wasMatch(bi) // fully matched input
+      def test(bi: NonNegativeInt, ti: NonNegativeInt): Result[NonNegativeInt] =
+        if(bi >= bfl) Result.wasMismatch // run off the end of the input
+        else if (ti >= tsl) Result.wasMatch(bi) // fully matched input
         else if (E.equiv(buff tokenAt bi, ts tokenAt ti)) test(bi + 1, ti + 1) // may need optimisations here for bounds checks
-        else PositionResult.wasMismatch // tokens differ
+        else Result.wasMismatch // tokens differ
 
       test(pos, NonNegativeInt(0))
     }
 
 
-  implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[Position[Buffer], Position[Buffer], Position[Buffer]] =
+  implied PositionParseOneThenOther[Buffer] for ParseOneThenOther[Parse[Buffer], Parse[Buffer], Parse[Buffer]] =
     (lhs, rhs) => (buff, pos) =>
       lhs(buff, pos)(new {
         override def matched = rhs(buff, _)(new {
-          override def matched = PositionResult.wasMatch
-          override def mismatched = PositionResult.wasMismatch
+          override def matched = Result.wasMatch
+          override def mismatched = Result.wasMismatch
         })
-        override def mismatched = PositionResult.wasMismatch
+        override def mismatched = Result.wasMismatch
       })
 
 
-  implied PositionParseOneOrOther[Buffer] for ParseOneOrOther[Position[Buffer], Position[Buffer], Position[Buffer]] =
+  implied PositionParseOneOrOther[Buffer] for ParseOneOrOther[Parse[Buffer], Parse[Buffer], Parse[Buffer]] =
     (lhs, rhs) => (buff, pos) =>
       lhs(buff, pos)(new {
-        override def matched = PositionResult.wasMatch
+        override def matched = Result.wasMatch
         override def mismatched = rhs(buff, pos)(new {
-          override def matched = PositionResult.wasMatch
-          override def mismatched = PositionResult.wasMismatch
+          override def matched = Result.wasMatch
+          override def mismatched = Result.wasMismatch
         })
       })
 
 
-  implied RunPositionParser[Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult[NonNegativeInt]] = p => p(_, NonNegativeInt(0))
+  implied RunPositionParser[Buffer] for RunDSL[Parse[Buffer], Buffer => Result[NonNegativeInt]] = p => p(_, NonNegativeInt(0))
 
 
-  implied CapturePositionAsValue[Buffer, Token] given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, Position[Buffer], [A] => Value[Buffer, A]] {
-    def (p: Position[Buffer]) capture = Value { (buff, pos) =>
+  implied CapturePositionAsValue[Buffer, Token] given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, Parse[Buffer], [A] => Value[Buffer, A]] {
+    def (p: Parse[Buffer]) capture = Value { (buff, pos) =>
       p(buff, pos)(new {
         override def matched = end => ValueResult.wasMatch(end, buff.subBuffer(pos, end))
 
@@ -164,10 +164,10 @@ object Position {
 
   }
 
-  inline def (p: Position[Buffer]) apply[Buffer](buff: Buffer, pos: NonNegativeInt): PositionResult[NonNegativeInt] = (p: (Buffer, NonNegativeInt) => PositionResult[NonNegativeInt])(buff, pos)
+  inline def (p: Parse[Buffer]) apply[Buffer](buff: Buffer, pos: NonNegativeInt): Result[NonNegativeInt] = (p: (Buffer, NonNegativeInt) => Result[NonNegativeInt])(buff, pos)
 }
 
-implied [Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult[NonNegativeInt]] = Position.RunPositionParser
+implied [Buffer] for RunDSL[Parse[Buffer], Buffer => Result[NonNegativeInt]] = Parse.RunPositionParser
 
 
 //trait JsonParser[R] {

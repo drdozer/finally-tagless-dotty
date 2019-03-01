@@ -21,7 +21,7 @@ object ValueResult {
 opaque type Value[Buffer, A] = (Buffer, NonNegativeInt) => ValueResult[A]
 
 object Value {
-  import Position._
+  import Parse._
 
   def apply[Buffer, A](p: (Buffer, NonNegativeInt) => ValueResult[A]): Value[Buffer, A] = p
 
@@ -36,7 +36,7 @@ object Value {
   }
 
 
-  implied ValueAndThenPosition[Buffer, A] for ParseOneThenOther[Value[Buffer, A], Position[Buffer], Value[Buffer, A]] =
+  implied ValueAndThenPosition[Buffer, A] for ParseOneThenOther[Value[Buffer, A], Parse[Buffer], Value[Buffer, A]] =
     (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
       override def matched = (lEnd, value) => rhs(buff, lEnd)(new {
         override def matched = ValueResult.wasMatch(_, value)
@@ -46,7 +46,7 @@ object Value {
     })
 
 
-  implied PositionAndThenValue[Buffer, B] for ParseOneThenOther[Position[Buffer], Value[Buffer, B], Value[Buffer, B]] =
+  implied PositionAndThenValue[Buffer, B] for ParseOneThenOther[Parse[Buffer], Value[Buffer, B], Value[Buffer, B]] =
     (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
       override def matched = rhs(buff, _)(new {
         override def matched = (rEnd, value) => ValueResult.wasMatch(rEnd, value)
