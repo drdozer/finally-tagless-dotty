@@ -1,7 +1,7 @@
 import scala.language.{higherKinds, implicitConversions}
 
 trait MatchValue[V[_], A] {
-  def matched(endingBefore: NonNegativeInt, value: A): V[A]
+  def matched: (NonNegativeInt, A) => V[A]
   def mismatched: V[A]
 }
 
@@ -30,7 +30,7 @@ object Value {
   implied ValueMapper[Buffer] for Mappable[[A] => Value[Buffer, A]] {
     def (p: Value[Buffer, A]) map[A, B](f: A => B): Value[Buffer, B] =
     (buff, pos) => p(buff, pos)(new MatchValue[Const[ValueResult[B]], A] {
-      override def matched(end: NonNegativeInt, value: A) = ValueResult.wasMatch(end, f(value))
+      override def matched = (end, value) => ValueResult.wasMatch(end, f(value))
       override def mismatched = ValueResult.wasMismatch
     })
   }
@@ -38,7 +38,7 @@ object Value {
 
   implied ValueAndThenPosition[Buffer, A] for ParseOneThenOther[Value[Buffer, A], Position[Buffer], Value[Buffer, A]] =
     (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
-      override def matched(lEnd: NonNegativeInt, value: A) = rhs(buff, lEnd)(new {
+      override def matched = (lEnd, value) => rhs(buff, lEnd)(new {
         override def matched = ValueResult.wasMatch(_, value)
         override def mismatched = ValueResult.wasMismatch
       })
@@ -49,7 +49,7 @@ object Value {
   implied PositionAndThenValue[Buffer, B] for ParseOneThenOther[Position[Buffer], Value[Buffer, B], Value[Buffer, B]] =
     (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
       override def matched = rhs(buff, _)(new {
-        override def matched(rEnd: NonNegativeInt, value: B) = ValueResult.wasMatch(rEnd, value)
+        override def matched = (rEnd, value) => ValueResult.wasMatch(rEnd, value)
         override def mismatched = ValueResult.wasMismatch
       })
       override def mismatched = ValueResult.wasMismatch
@@ -59,21 +59,20 @@ object Value {
   // type hints required ont he MatchValue instances as we're combining two values, meaning dotty would have to work out two types with holes
   implied PositionAndThenPosition[Buffer, A, B] for ParseOneThenOther[Value[Buffer, A], Value[Buffer, B], Value[Buffer, (A, B)]] =
     (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new MatchValue[Const[ValueResult[(A, B)]], A] {
-      override def matched(lEnd: NonNegativeInt, lValue: A) = {
+      override def matched = (lEnd, lValue) =>
         rhs(buff, lEnd)(new MatchValue[Const[ValueResult[(A, B)]], B] {
-          override def matched(rEnd: NonNegativeInt, rValue: B) = ValueResult.wasMatch(rEnd, (lValue, rValue))
+          override def matched = (rEnd, rValue) => ValueResult.wasMatch(rEnd, (lValue, rValue))
           override def mismatched = ValueResult.wasMismatch
         })
-      }
       override def mismatched: ValueResult[(A, B)] = ValueResult.wasMismatch
     })
 
 
   implied ValueOrAlternativelyValue[Buffer, A] for ParseOneOrOther[Value[Buffer, A], Value[Buffer, A], Value[Buffer, A]] =
     (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
-      override def matched(end: NonNegativeInt, value: A) = ValueResult.wasMatch(end, value)
+      override def matched = (end, value) => ValueResult.wasMatch(end, value)
       override def mismatched = rhs(buff, pos)(new {
-        override def matched(end: NonNegativeInt, value: A) = ValueResult.wasMatch(end, value)
+        override def matched = (end, value) => ValueResult.wasMatch(end, value)
         override def mismatched = ValueResult.wasMismatch
       })
     })

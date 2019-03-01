@@ -77,7 +77,7 @@ object Main {
     }
 
     def printValue[A]:  MatchValue[Const[Unit], A] = new {
-      override def matched(endingBefore: NonNegativeInt, value: A) = println(s"Matched input up until $endingBefore with $value")
+      override def matched = (endingBefore, value) => println(s"Matched input up until $endingBefore with $value")
       override def mismatched = println("Mismatched input")
     }
 
