@@ -71,7 +71,7 @@ object Main {
     val xyHiMum = xy ~ "Hi mum"
     val hiMumXxy = hiMumX ~ xy
 
-    val printPosition:  MatchPosition[Unit] = new {
+    val printPosition:  ParseResult[NonNegativeInt, Unit] = new {
       override def matched = endingBefore => println(s"Matched input up until $endingBefore")
       override def mismatched: Unit = println("Mismatched input")
     }

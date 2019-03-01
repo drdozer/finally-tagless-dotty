@@ -30,31 +30,31 @@ implied CharSequenceTokenBuffer for TokenBuffer[CharSequence, Char] {
 
 
 
-trait MatchPosition[M] {
-  def matched: NonNegativeInt => M
+trait ParseResult[S, M] {
+  def matched: S => M
   def mismatched: M
 }
 
 
-trait PositionResult {
-  def apply[M](mr: MatchPosition[M]): M
+trait PositionResult[S] {
+  def apply[M](mr: ParseResult[S, M]): M
 }
 
 object PositionResult {
-  def wasMatch(endingBefore: NonNegativeInt): PositionResult = new {
-    override def apply[M](mr: MatchPosition[M]): M = mr.matched(endingBefore)
+  def wasMatch(endingBefore: NonNegativeInt): PositionResult[NonNegativeInt] = new {
+    override def apply[M](mr: ParseResult[NonNegativeInt, M]): M = mr.matched(endingBefore)
   }
   // object? val? def? what will be best for inlining/erasing?
-  object wasMismatch extends PositionResult {
-    override def apply[M](mr: MatchPosition[M]): M = mr.mismatched
+  object wasMismatch extends PositionResult[NonNegativeInt] {
+    override def apply[M](mr: ParseResult[NonNegativeInt, M]): M = mr.mismatched
   }
 
-  def handleMatch(m: NonNegativeInt => NonNegativeInt = identity): MatchPosition[PositionResult] = new {
+  def handleMatch(m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, PositionResult[NonNegativeInt]] = new {
     override def matched = endingBefore => wasMatch(m(endingBefore))
     override def mismatched = wasMismatch
   }
 
-  def matchIf(f: NonNegativeInt => Boolean, m: NonNegativeInt => NonNegativeInt = identity): MatchPosition[PositionResult] = new {
+  def matchIf(f: NonNegativeInt => Boolean, m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, PositionResult[NonNegativeInt]] = new {
     override def matched = endingBefore =>
       if(f(endingBefore)) wasMatch(m(endingBefore))
       else wasMismatch
@@ -62,7 +62,7 @@ object PositionResult {
   }
 }
 
-opaque type Position[Buffer] = (Buffer, NonNegativeInt) => PositionResult
+opaque type Position[Buffer] = (Buffer, NonNegativeInt) => PositionResult[NonNegativeInt]
 
 object Position {
 
@@ -118,7 +118,7 @@ object Position {
       (ts) => (buff, pos) => {
       val tsl = ts.length
       val bfl = buff.length
-      def test(bi: NonNegativeInt, ti: NonNegativeInt): PositionResult =
+      def test(bi: NonNegativeInt, ti: NonNegativeInt): PositionResult[NonNegativeInt] =
         if(bi >= bfl) PositionResult.wasMismatch // run off the end of the input
         else if (ti >= tsl) PositionResult.wasMatch(bi) // fully matched input
         else if (E.equiv(buff tokenAt bi, ts tokenAt ti)) test(bi + 1, ti + 1) // may need optimisations here for bounds checks
@@ -150,7 +150,7 @@ object Position {
       })
 
 
-  implied RunPositionParser[Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult] = p => p(_, NonNegativeInt(0))
+  implied RunPositionParser[Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult[NonNegativeInt]] = p => p(_, NonNegativeInt(0))
 
 
   implied CapturePositionAsValue[Buffer, Token] given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, Position[Buffer], [A] => Value[Buffer, A]] {
@@ -164,10 +164,10 @@ object Position {
 
   }
 
-  inline def (p: Position[Buffer]) apply[Buffer](buff: Buffer, pos: NonNegativeInt): PositionResult = (p: (Buffer, NonNegativeInt) => PositionResult)(buff, pos)
+  inline def (p: Position[Buffer]) apply[Buffer](buff: Buffer, pos: NonNegativeInt): PositionResult[NonNegativeInt] = (p: (Buffer, NonNegativeInt) => PositionResult[NonNegativeInt])(buff, pos)
 }
 
-implied [Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult] = Position.RunPositionParser
+implied [Buffer] for RunDSL[Position[Buffer], Buffer => PositionResult[NonNegativeInt]] = Position.RunPositionParser
 
 
 //trait JsonParser[R] {
