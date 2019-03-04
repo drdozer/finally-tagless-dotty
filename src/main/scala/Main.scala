@@ -59,8 +59,6 @@ object Main {
   }
 
   def parser: Unit = {
-    import implied Parse._
-    import implied Value._
 
     val xy = 'x' ~ 'y'
     val xyEnd = xy ~ ParserSyntax.ending
