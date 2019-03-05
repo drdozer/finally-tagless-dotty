@@ -1,9 +1,16 @@
+import ct._
+import implied ct._
 
 @FunctionalInterface
 trait Variable[B] {
   def variable(name: String): B
 }
 
+object Variable {
+  implied StringifyVariable for Variable[Stringify] {
+    override def variable(name: String): Stringify = "?".a ++ name.a
+  }
+}
 
 type MapBinding[B] = (String, given TruthValues[B] => B)
 opaque type MapBindings[B] = List[MapBinding[B]]

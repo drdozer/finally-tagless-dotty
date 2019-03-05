@@ -1,4 +1,5 @@
 import scala.language.{higherKinds, implicitConversions}
+import ct._
 
 /** Non-negative integers.
   * n >= 0

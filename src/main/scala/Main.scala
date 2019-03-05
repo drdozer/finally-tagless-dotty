@@ -1,4 +1,6 @@
 import scala.language.implicitConversions
+import ct._
+import implied ct._
 
 object Main {
 

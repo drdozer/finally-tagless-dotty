@@ -1,3 +1,5 @@
+package ct
+
 import scala.language.{higherKinds, implicitConversions}
 
 type Identity[T] = T

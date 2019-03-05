@@ -1,3 +1,4 @@
+import ct._
 
 trait Strandedness[S] {
   def topStrand: S

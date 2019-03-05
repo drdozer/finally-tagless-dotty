@@ -1,3 +1,5 @@
+import ct._
+
 import scala.language.implicitConversions
 import NonNegativeInt.+
 

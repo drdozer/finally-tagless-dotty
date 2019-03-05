@@ -1,3 +1,6 @@
+import ct._
+import implied ct._
+
 @FunctionalInterface
 trait And[B] {
   def and(lhs: B, rhs: B): B
@@ -6,6 +9,10 @@ trait And[B] {
 object And {
   implied AndAsSemigroup for AsSemigroup[And] {
     def (B: And[B]) asSemigroup[B]: Semigroup[B] = B.and
+  }
+  implied StringifyAnd for And[Stringify] {
+    override def and(lhs: Stringify, rhs: Stringify): Stringify =
+    "and(".a ++ lhs ++ ",".a ++ rhs ++ ")".a
   }
 }
 
@@ -18,11 +25,22 @@ object Or {
   implied OrAsSemigroup for AsSemigroup[Or] {
     def (B: Or[B]) asSemigroup[B]: Semigroup[B] = B.or
   }
+  implied StringifyOr for Or[Stringify] {
+    override def or(lhs: Stringify, rhs: Stringify): Stringify =
+    "or(".a ++ lhs ++ ",".a ++ rhs ++ ")".a
+  }
 }
 
 @FunctionalInterface
 trait Not[B] {
   def not(lhs: B): B
+}
+
+object Not {
+  implied StringifyNot for Not[Stringify] {
+    override def not(lhs: Stringify): Stringify =
+    "not(".a ++ lhs ++ ")".a
+  }
 }
 
 trait TruthValues[B] {
@@ -31,6 +49,14 @@ trait TruthValues[B] {
   inline def of(b: Boolean): B = if(b) ⊤ else ⊥
 }
 
+object TruthValues {
+
+  implied StringifyTruthValues for TruthValues[Stringify] {
+    override def ⊤ : Stringify = "⊤".a
+    override def ⊥ : Stringify = "⊥".a
+  }
+
+}
 
 opaque type Bool = Boolean
 

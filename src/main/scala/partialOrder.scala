@@ -1,3 +1,5 @@
+import ct._
+
 @FunctionalInterface
 trait Lt[P, B] {
   def lt(lhs: P, rhs: P): B
