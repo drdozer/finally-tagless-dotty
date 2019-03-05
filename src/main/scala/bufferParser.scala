@@ -35,6 +35,17 @@ trait ParseResult[S, M] {
   def mismatched: M
 }
 
+object ParseResult {
+  def apply[S, M](matched: S => M, mismatched: M): ParseResult[S, M] = {
+    val ma = matched
+    val mi = mismatched
+    new {
+      override def matched = ma
+      override def mismatched = mi
+    }
+  }
+}
+
 
 trait Result[S] {
   def apply[M](mr: ParseResult[S, M]): M
@@ -49,17 +60,19 @@ object Result {
     override def apply[M](mr: ParseResult[S, M]): M = mr.mismatched
   }
 
-  def handleMatch(m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, Result[NonNegativeInt]] = new {
-    override def matched = endingBefore => wasMatch(m(endingBefore))
-    override def mismatched = wasMismatch
-  }
+  def handleMatch(m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, Result[NonNegativeInt]] = ParseResult(
+    matched = endingBefore => wasMatch(m(endingBefore))
+      ,
+    mismatched = wasMismatch
+  )
 
-  def matchIf(f: NonNegativeInt => Boolean, m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, Result[NonNegativeInt]] = new {
-    override def matched = endingBefore =>
+  def matchIf(f: NonNegativeInt => Boolean, m: NonNegativeInt => NonNegativeInt = identity): ParseResult[NonNegativeInt, Result[NonNegativeInt]] = ParseResult(
+    matched = endingBefore =>
       if(f(endingBefore)) wasMatch(m(endingBefore))
       else wasMismatch
-    override def mismatched = wasMismatch
-  }
+    ,
+    mismatched = wasMismatch
+  )
 }
 
 // todo: there's a dotty bug with type aliases for opaques
@@ -82,10 +95,10 @@ implied PositionLookaheadParser[Buffer] for LookaheadParser[ParseAt[Buffer]] {
   override def positiveLookAhead(lhs: ParseAt[Buffer]) = (buff, pos) =>
     lhs(buff, pos)(Result.handleMatch(_ => pos))
 
-    override def negativeLookAhead(lhs: ParseAt[Buffer]) = (buff, pos) => lhs(buff, pos)(new {
-    override def matched = endingBefore => Result.wasMismatch
-    override def mismatched = Result.wasMatch(pos)
-  })
+    override def negativeLookAhead(lhs: ParseAt[Buffer]) = (buff, pos) => lhs(buff, pos)(ParseResult(
+    matched = endingBefore => Result.wasMismatch,
+    mismatched = Result.wasMatch(pos)
+  ))
 }
 
 implied PositionParserLocations[Buffer, Token]
@@ -93,7 +106,7 @@ implied PositionParserLocations[Buffer, Token]
   override def beginning = (buff, pos) =>
     if(pos == NonNegativeInt(0)) Result.wasMatch(pos)
     else Result.wasMismatch
-    override def ending = (buff, pos) =>
+  override def ending = (buff, pos) =>
     if(pos == buff.length) Result.wasMatch(pos)
     else Result.wasMismatch
 }
@@ -163,11 +176,10 @@ implied RunPositionParser[Buffer] for RunDSL[ParseAt[Buffer], Buffer => Result[N
 implied CapturePositionAsValue[Buffer, Token]
   given TokenBuffer[Buffer, Token] for ParserCapture[Buffer, ParseAt[Buffer], [A] => ParseValue[Buffer, A]] {
   def (p: ParseAt[Buffer]) capture = { (buff, pos) =>
-    p(buff, pos)(new {
-      override def matched = end => Result.wasMatch(end, buff.subBuffer(pos, end))
-
-      override def mismatched = Result.wasMismatch
-    })
+    p(buff, pos)(ParseResult(
+      matched = end => Result.wasMatch(end, buff.subBuffer(pos, end)),
+      mismatched = Result.wasMismatch
+    ))
   }
 }
 
@@ -175,52 +187,53 @@ implied CapturePositionAsValue[Buffer, Token]
 // type hint required for the MatchValue instance, to rewrite the return value to B
 implied ValueMapper[Buffer] for Mappable[[A] => ParseValue[Buffer, A]] {
   def (p: ParseValue[Buffer, A]) map[A, B](f: A => B): ParseValue[Buffer, B] =
-  (buff, pos) => p(buff, pos)(new {
-    override def matched = (end, value) => Result.wasMatch(end, f(value))
-    override def mismatched = Result.wasMismatch
-  })
+  (buff, pos) => p(buff, pos)(ParseResult(
+    matched = (end, value) => Result.wasMatch(end, f(value)),
+    mismatched = Result.wasMismatch
+  ))
 }
 
 
 implied ValueAndThenPosition[Buffer, A] for ParseOneThenOther[ParseValue[Buffer, A], ParseAt[Buffer], ParseValue[Buffer, A]] =
-  (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
-    override def matched = (lEnd, value) => rhs(buff, lEnd)(new {
-      override def matched = Result.wasMatch(_, value)
-      override def mismatched = Result.wasMismatch
-    })
-    override def mismatched = Result.wasMismatch
-  })
+  (lhs, rhs) => (buff, pos) => lhs(buff, pos)(ParseResult(
+    matched = (lEnd, value) => rhs(buff, lEnd)(ParseResult(
+      matched = Result.wasMatch(_, value),
+      mismatched = Result.wasMismatch
+    )),
+    mismatched = Result.wasMismatch
+    ))
 
 
 implied PositionAndThenValue[Buffer, B] for ParseOneThenOther[ParseAt[Buffer], ParseValue[Buffer, B], ParseValue[Buffer, B]] =
-  (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
-    override def matched = rhs(buff, _)(new {
-      override def matched = (rEnd, value) => Result.wasMatch(rEnd, value)
-      override def mismatched = Result.wasMismatch
-    })
-    override def mismatched = Result.wasMismatch
-  })
+  (lhs, rhs) => (buff, pos) => lhs(buff, pos)(ParseResult(
+    matched = rhs(buff, _)(ParseResult(
+      matched = (rEnd, value) => Result.wasMatch(rEnd, value),
+      mismatched = Result.wasMismatch
+    )),
+    mismatched = Result.wasMismatch
+  ))
 
 
 // type hints required ont he MatchValue instances as we're combining two values, meaning dotty would have to work out two types with holes
 implied PositionAndThenPosition[Buffer, A, B] for ParseOneThenOther[ParseValue[Buffer, A], ParseValue[Buffer, B], ParseValue[Buffer, (A, B)]] =
-  (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
-    override def matched = (lEnd, lValue) =>
-      rhs(buff, lEnd)(new {
-        override def matched = (rEnd, rValue) => Result.wasMatch(rEnd, (lValue, rValue))
-        override def mismatched = Result.wasMismatch
-      })
-    override def mismatched = Result.wasMismatch
-  })
+  (lhs, rhs) => (buff, pos) => lhs(buff, pos)(ParseResult(
+    matched = (lEnd, lValue) =>
+      rhs(buff, lEnd)(ParseResult(
+        matched = (rEnd, rValue) => Result.wasMatch(rEnd, (lValue, rValue)),
+        mismatched = Result.wasMismatch
+      )),
+    mismatched = Result.wasMismatch
+  ))
 
 
 implied ValueOrAlternativelyValue[Buffer, A] for ParseOneOrOther[ParseValue[Buffer, A], ParseValue[Buffer, A], ParseValue[Buffer, A]] =
-  (lhs, rhs) => (buff, pos) => lhs(buff, pos)(new {
-    override def matched = (end, value) => Result.wasMatch(end, value)
-    override def mismatched = rhs(buff, pos)(new {
-      override def matched = (end, value) => Result.wasMatch(end, value)
-      override def mismatched = Result.wasMismatch
-    })
-  })
+  (lhs, rhs) => (buff, pos) => lhs(buff, pos)(ParseResult(
+    matched = (end, value) => Result.wasMatch(end, value),
+    mismatched = rhs(buff, pos)(ParseResult(
+      matched = (end, value) => Result.wasMatch(end, value),
+      mismatched = Result.wasMismatch
+    ))
+  ))
 
-implied RunValue[Buffer, A] for RunDSL[ParseValue[Buffer, A], Buffer => Result[(NonNegativeInt, A)]] = p => p(_, NonNegativeInt(0))
+implied RunValue[Buffer, A] for RunDSL[ParseValue[Buffer, A], Buffer => Result[(NonNegativeInt, A)]] =
+  p => p(_, NonNegativeInt(0))
