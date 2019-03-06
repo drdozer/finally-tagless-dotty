@@ -4,7 +4,7 @@ import implied ct._
 
 object Main {
 
-  def main(args: Array[String]): Unit = { logic ; parser }
+  def main(args: Array[String]): Unit = { logic ; parsers }
 
   def logic: Unit = {
     import expr._
@@ -62,7 +62,9 @@ object Main {
     (implication : NNF[BindIfPossible[Stringify]]).run.run("a" |-> ⊤).run(System.out) ; println
   }
 
-  def parser: Unit = {
+  def parsers: Unit = {
+    import parser._
+    import implied parser._
 
     val xy = 'x' ~ 'y'
     val xyEnd = xy ~ ParserSyntax.ending

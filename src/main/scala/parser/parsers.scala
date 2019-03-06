@@ -1,3 +1,5 @@
+package parser
+
 import scala.language.{higherKinds, implicitConversions}
 import ct._
 

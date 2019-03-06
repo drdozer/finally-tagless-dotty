@@ -1,3 +1,5 @@
+package parser
+
 import ct._
 
 import scala.language.implicitConversions
