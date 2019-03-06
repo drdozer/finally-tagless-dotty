@@ -7,6 +7,8 @@ object Main {
   def main(args: Array[String]): Unit = { logic ; parser }
 
   def logic: Unit = {
+    import expr._
+    import implied expr._
 
     inline def ⊤ [B] given (B: TruthValues[B]): B = B.⊤
     inline def ⊥ [B] given (B: TruthValues[B]): B = B.⊥
